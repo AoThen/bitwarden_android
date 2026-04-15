@@ -46,6 +46,7 @@ import com.x8bit.bitwarden.ui.platform.model.FeatureFlagsState
 import com.x8bit.bitwarden.ui.platform.util.isAccountSecurityShortcut
 import com.x8bit.bitwarden.ui.platform.util.isMyVaultShortcut
 import com.x8bit.bitwarden.ui.platform.util.isPasswordGeneratorShortcut
+import com.x8bit.bitwarden.ui.platform.util.isPremiumCheckoutCallback
 import com.x8bit.bitwarden.ui.vault.util.getTotpDataOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
@@ -197,6 +198,7 @@ class MainViewModel @Inject constructor(
             is MainAction.SsoResult -> handleSsoResult(action)
             is MainAction.WebAuthnResult -> handleWebAuthnResult(action)
             is MainAction.CookieAcquisitionResult -> handleCookieAcquisitionResult(action)
+            is MainAction.PremiumCheckoutResult -> handlePremiumCheckoutResult()
             is MainAction.Internal -> handleInternalAction(action)
         }
     }
@@ -244,6 +246,11 @@ class MainViewModel @Inject constructor(
         authRepository.setCookieCallbackResult(
             result = action.cookieCallbackResult.getCookieCallbackResult(),
         )
+    }
+
+    private fun handlePremiumCheckoutResult() {
+        specialCircumstanceManager.specialCircumstance =
+            SpecialCircumstance.PremiumCheckoutResult
     }
 
     private fun handleAppResumeDataUpdated(action: MainAction.ResumeScreenDataReceived) {
@@ -333,6 +340,7 @@ class MainViewModel @Inject constructor(
         val hasGeneratorShortcut = intent.isPasswordGeneratorShortcut
         val hasVaultShortcut = intent.isMyVaultShortcut
         val hasAccountSecurityShortcut = intent.isAccountSecurityShortcut
+        val hasPremiumCheckoutCallback = intent.isPremiumCheckoutCallback
         val completeRegistrationData = intent.getCompleteRegistrationDataIntentOrNull()
         val importCredentialsRequest = intent.getProviderImportCredentialsRequest()
         val credentialProviderRequest =
@@ -392,6 +400,11 @@ class MainViewModel @Inject constructor(
                         // Send task when this is not the first intent.
                         shouldFinishWhenComplete = isFirstIntent,
                     )
+            }
+
+            hasPremiumCheckoutCallback -> {
+                specialCircumstanceManager.specialCircumstance =
+                    SpecialCircumstance.PremiumCheckoutResult
             }
 
             hasGeneratorShortcut -> {
@@ -546,6 +559,13 @@ sealed class MainAction {
      */
     data class CookieAcquisitionResult(
         val cookieCallbackResult: AuthTabIntent.AuthResult,
+    ) : MainAction()
+
+    /**
+     * Receive the result from the premium checkout flow.
+     */
+    data class PremiumCheckoutResult(
+        val authResult: AuthTabIntent.AuthResult,
     ) : MainAction()
 
     /**

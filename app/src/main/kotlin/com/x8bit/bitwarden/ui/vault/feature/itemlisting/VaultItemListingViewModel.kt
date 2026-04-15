@@ -1723,7 +1723,8 @@ class VaultItemListingViewModel @Inject constructor(
                     it.copy(
                         dialogState = VaultItemListingState.DialogState.Error(
                             title = BitwardenString.an_error_has_occurred.asText(),
-                            message = BitwardenString.unable_to_archive_selected_item.asText(),
+                            message = result.errorMessage?.asText()
+                                ?: BitwardenString.unable_to_archive_selected_item.asText(),
                             throwable = result.error,
                         ),
                     )
@@ -1750,7 +1751,8 @@ class VaultItemListingViewModel @Inject constructor(
                     it.copy(
                         dialogState = VaultItemListingState.DialogState.Error(
                             title = BitwardenString.an_error_has_occurred.asText(),
-                            message = BitwardenString.unable_to_unarchive_selected_item.asText(),
+                            message = result.errorMessage?.asText()
+                                ?: BitwardenString.unable_to_unarchive_selected_item.asText(),
                             throwable = result.error,
                         ),
                     )
@@ -2547,11 +2549,28 @@ class VaultItemListingViewModel @Inject constructor(
             bitwardenCredentialManager.isUserVerified = false
             clearDialogState()
 
-            val event = selectedCipher.login
+            val event = selectedCipher
+                .login
                 ?.let { credential ->
-                    VaultItemListingEvent.CompleteProviderGetPasswordCredentialRequest(
-                        GetPasswordCredentialResult.Success(credential = credential),
-                    )
+                    credential
+                        .password
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { password ->
+                            VaultItemListingEvent.CompleteProviderGetPasswordCredentialRequest(
+                                GetPasswordCredentialResult.Success(
+                                    username = credential.username,
+                                    password = password,
+                                ),
+                            )
+                        }
+                        ?: VaultItemListingEvent.CompleteProviderGetPasswordCredentialRequest(
+                            @Suppress("MaxLineLength")
+                            GetPasswordCredentialResult.Error(
+                                message = BitwardenString
+                                    .password_operation_failed_because_the_selected_item_does_not_have_a_valid_password
+                                    .asText(),
+                            ),
+                        )
                 }
                 ?: VaultItemListingEvent.CompleteProviderGetPasswordCredentialRequest(
                     GetPasswordCredentialResult.Error(
@@ -2961,6 +2980,12 @@ data class VaultItemListingState(
         get() = !isAutofill && !isCredentialManagerCreation && !isTotp
 
     /**
+     * Whether the search icon should be shown.
+     */
+    val shouldShowSearchIcon: Boolean
+        get() = viewState is ViewState.Content
+
+    /**
      * Whether the overflow menu should be shown.
      */
     val shouldShowOverflowMenu: Boolean
@@ -3093,7 +3118,7 @@ data class VaultItemListingState(
         ) : DialogState()
 
         /**
-         * Displays a dialog to the user indicating that archiving requires a premium account.
+         * Displays a dialog to the user indicating that archiving requires a Premium account.
          */
         @Parcelize
         data object ArchiveRequiresPremium : DialogState()
@@ -3104,7 +3129,7 @@ data class VaultItemListingState(
      */
     sealed class ActionCardState {
         /**
-         * Indicates that your premium subscription has lapsed.
+         * Indicates that your Premium subscription has lapsed.
          */
         data object PremiumSubscription : ActionCardState()
     }
@@ -3663,7 +3688,7 @@ sealed class VaultItemListingsAction {
     ) : VaultItemListingsAction()
 
     /**
-     * Click the upgrade to premium button.
+     * Click the upgrade to Premium button.
      */
     data object UpgradeToPremiumClick : VaultItemListingsAction()
 

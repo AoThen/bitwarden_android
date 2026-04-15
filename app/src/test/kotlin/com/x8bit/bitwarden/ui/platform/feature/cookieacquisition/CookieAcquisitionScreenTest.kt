@@ -42,7 +42,6 @@ class CookieAcquisitionScreenTest : BitwardenComposeTest() {
     }
     private val intentManager = mockk<IntentManager> {
         every { startAuthTab(uri = any(), authTabData = any(), launcher = any()) } just runs
-        every { launchUri(any()) } just runs
     }
 
     @Before
@@ -53,6 +52,7 @@ class CookieAcquisitionScreenTest : BitwardenComposeTest() {
                 sso = mockk(),
                 webAuthn = mockk(),
                 cookie = cookieLauncher,
+                premiumCheckout = mockk(),
             ),
             intentManager = intentManager,
         ) {
@@ -85,15 +85,6 @@ class CookieAcquisitionScreenTest : BitwardenComposeTest() {
     }
 
     @Test
-    fun `NavigateToHelp event should call launchUri`() {
-        val uri = "https://bitwarden.com/help"
-        mutableEventFlow.tryEmit(CookieAcquisitionEvent.NavigateToHelp(uri = uri))
-        verify {
-            intentManager.launchUri(uri.toUri())
-        }
-    }
-
-    @Test
     fun `title should be displayed`() {
         composeTestRule
             .onNodeWithText("Sync with browser")
@@ -121,7 +112,6 @@ class CookieAcquisitionScreenTest : BitwardenComposeTest() {
         }
     }
 
-    @Suppress("MaxLineLength")
     @Test
     fun `continue without syncing button click should send ContinueWithoutSyncingClick action`() {
         composeTestRule
@@ -131,20 +121,6 @@ class CookieAcquisitionScreenTest : BitwardenComposeTest() {
         verify {
             viewModel.trySendAction(
                 CookieAcquisitionAction.ContinueWithoutSyncingClick,
-            )
-        }
-    }
-
-    @Suppress("MaxLineLength")
-    @Test
-    fun `why am I seeing this button click should send WhyAmISeeingThisClick action`() {
-        composeTestRule
-            .onNodeWithText("Why am I seeing this?")
-            .performScrollTo()
-            .performClick()
-        verify {
-            viewModel.trySendAction(
-                CookieAcquisitionAction.WhyAmISeeingThisClick,
             )
         }
     }

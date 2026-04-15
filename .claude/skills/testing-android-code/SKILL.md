@@ -245,6 +245,8 @@ fun `test exception`() {
 
 Common testing mistakes in Bitwarden. **For complete details and examples:** See `references/critical-gotchas.md`
 
+> **⛔ STOP — `@Suppress("MaxLineLength")`**: Do NOT add this annotation unless the `fun` declaration line **actually exceeds 100 characters**. Count the characters first. Do not copy it from nearby tests. Detekt will tell you if it's needed — when in doubt, leave it off.
+
 **Core Patterns:**
 - **assertCoroutineThrows + runTest** - Never wrap in `runTest`; call directly
 - **Static mock cleanup** - Always `unmockkStatic()` in `@After`
@@ -281,6 +283,10 @@ module/src/testFixtures/kotlin/com/bitwarden/.../
 ├── base/Base*Test.kt
 └── model/*Util.kt
 ```
+
+### Test Constants Placement
+
+Declare test constants as top-level `private const val` at the **bottom** of the file, after the class closing brace. Do NOT use `companion object` for test constants.
 
 ### Test Naming
 

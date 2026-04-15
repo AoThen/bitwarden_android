@@ -1,6 +1,7 @@
 package com.x8bit.bitwarden.ui.vault.feature.vault
 
 import app.cash.turbine.test
+import com.bitwarden.core.data.manager.BuildInfoManager
 import com.bitwarden.core.data.manager.model.FlagKey
 import com.bitwarden.core.data.repository.model.DataState
 import com.bitwarden.core.data.repository.util.bufferedMutableSharedFlow
@@ -30,6 +31,7 @@ import com.x8bit.bitwarden.data.auth.repository.model.UserState
 import com.x8bit.bitwarden.data.auth.repository.model.ValidatePasswordResult
 import com.x8bit.bitwarden.data.auth.repository.model.createMockOrganization
 import com.x8bit.bitwarden.data.autofill.manager.browser.BrowserAutofillDialogManager
+import com.x8bit.bitwarden.data.billing.manager.PremiumStateManager
 import com.x8bit.bitwarden.data.platform.manager.CredentialExchangeRegistryManager
 import com.x8bit.bitwarden.data.platform.manager.FeatureFlagManager
 import com.x8bit.bitwarden.data.platform.manager.FirstTimeActionManager
@@ -92,6 +94,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -210,6 +213,10 @@ class VaultViewModelTest : BaseViewModelTest() {
         every { delayDialog() } just runs
     }
 
+    private val buildInfoManager = mockk<BuildInfoManager> {
+        every { isFdroid } returns false
+    }
+
     private val credentialExchangeRegistryManager: CredentialExchangeRegistryManager = mockk {
         coEvery { register() } returns RegisterExportResult.Success
         coEvery { unregister() } returns UnregisterExportResult.Success
@@ -222,6 +229,14 @@ class VaultViewModelTest : BaseViewModelTest() {
         } returns mutableCxpExportFeatureFlagFlow
         every { getFeatureFlagFlow(FlagKey.ArchiveItems) } returns mutableArchiveItemsFlagFlow
         every { getFeatureFlag(FlagKey.ArchiveItems) } returns mutableArchiveItemsFlagFlow.value
+    }
+
+    private val mutablePremiumUpgradeBannerEligibleFlow = MutableStateFlow(false)
+    private val premiumStateManager: PremiumStateManager = mockk {
+        every {
+            isPremiumUpgradeBannerEligibleFlow
+        } returns mutablePremiumUpgradeBannerEligibleFlow
+        every { dismissPremiumUpgradeBanner() } just runs
     }
 
     @AfterEach
@@ -309,6 +324,101 @@ class VaultViewModelTest : BaseViewModelTest() {
         }
 
     @Test
+    fun `PremiumUpgradeBannerEligibleFlow updates should update state`() =
+        runTest {
+            val viewModel = createViewModel()
+
+            viewModel.stateFlow.test {
+                assertEquals(DEFAULT_STATE, awaitItem())
+                mutablePremiumUpgradeBannerEligibleFlow.value = true
+                assertEquals(
+                    DEFAULT_STATE.copy(
+                        isPremiumUpgradeBannerEligible = true,
+                    ),
+                    awaitItem(),
+                )
+                mutablePremiumUpgradeBannerEligibleFlow.value = false
+                assertEquals(DEFAULT_STATE, awaitItem())
+            }
+        }
+
+    @Test
+    fun `DismissActionCardClick with UpgradePremium should call dismissPremiumUpgradeBanner`() =
+        runTest {
+            val viewModel = createViewModel()
+
+            viewModel.trySendAction(
+                VaultAction.DismissActionCardClick(
+                    VaultState.ActionCardState.UpgradePremium,
+                ),
+            )
+
+            verify(exactly = 1) {
+                premiumStateManager.dismissPremiumUpgradeBanner()
+            }
+        }
+
+    @Test
+    fun `ActionCardClick with UpgradePremium should emit NavigateToUpgradePremium`() =
+        runTest {
+            val viewModel = createViewModel()
+
+            viewModel.eventFlow.test {
+                viewModel.trySendAction(
+                    VaultAction.ActionCardClick(
+                        VaultState.ActionCardState.UpgradePremium,
+                    ),
+                )
+                assertEquals(
+                    VaultEvent.NavigateToUpgradePremium,
+                    awaitItem(),
+                )
+            }
+        }
+
+    @Test
+    fun `actionCard should return UpgradePremium when eligible and content is showing`() {
+        val contentViewState = DEFAULT_CONTENT_VIEW_STATE
+        val state = createMockVaultState(viewState = contentViewState).copy(
+            isPremiumUpgradeBannerEligible = true,
+        )
+
+        assertEquals(
+            VaultState.ActionCardState.UpgradePremium,
+            state.actionCard,
+        )
+    }
+
+    @Test
+    fun `actionCard should return IntroducingArchive when not eligible for Premium upgrade`() {
+        val contentViewState = DEFAULT_CONTENT_VIEW_STATE
+        val state = createMockVaultState(viewState = contentViewState).copy(
+            isPremiumUpgradeBannerEligible = false,
+            isPremium = true,
+            isArchiveEnabled = true,
+            isIntroducingArchiveActionCardDismissed = false,
+        )
+
+        assertEquals(
+            VaultState.ActionCardState.IntroducingArchive,
+            state.actionCard,
+        )
+    }
+
+    @Test
+    fun `actionCard should return null when not eligible for either card`() {
+        val contentViewState = DEFAULT_CONTENT_VIEW_STATE
+        val state = createMockVaultState(viewState = contentViewState).copy(
+            isPremiumUpgradeBannerEligible = false,
+            isPremium = false,
+            isArchiveEnabled = true,
+            isIntroducingArchiveActionCardDismissed = false,
+        )
+
+        assertNull(state.actionCard)
+    }
+
+    @Test
     fun `UserState updates with a null value should do nothing`() {
         val viewModel = createViewModel()
         assertEquals(
@@ -390,6 +500,7 @@ class VaultViewModelTest : BaseViewModelTest() {
                         onboardingStatus = OnboardingStatus.COMPLETE,
                         firstTimeState = DEFAULT_FIRST_TIME_STATE,
                         isExportable = true,
+                        creationDate = null,
                     ),
                 ),
             )
@@ -476,6 +587,7 @@ class VaultViewModelTest : BaseViewModelTest() {
                         onboardingStatus = OnboardingStatus.COMPLETE,
                         firstTimeState = DEFAULT_FIRST_TIME_STATE,
                         isExportable = true,
+                        creationDate = null,
                     ),
                 ),
             )
@@ -667,7 +779,7 @@ class VaultViewModelTest : BaseViewModelTest() {
     }
 
     @Test
-    fun `ArchiveClick without premium should show ArchiveRequiresPremium dialog`() = runTest {
+    fun `ArchiveClick without Premium should show ArchiveRequiresPremium dialog`() = runTest {
         mutableUserStateFlow.update { userState ->
             userState?.copy(
                 accounts = DEFAULT_USER_STATE.accounts.map { it.copy(isPremium = false) },
@@ -750,6 +862,46 @@ class VaultViewModelTest : BaseViewModelTest() {
         )
     }
 
+    @Suppress("MaxLineLength")
+    @Test
+    fun `ArchiveClick with ArchiveCipherResult error with errorMessage should display that message`() =
+        runTest {
+            val cipherView = createMockCipherView(number = 1, clock = clock)
+
+            val viewModel = createViewModel()
+
+            val errorMessage = "You do not have permission to edit this."
+            val error = Throwable("Oh dang.")
+            coEvery {
+                vaultRepository.archiveCipher(
+                    cipherId = "mockId-1",
+                    cipherView = cipherView,
+                )
+            } returns ArchiveCipherResult.Error(
+                errorMessage = errorMessage,
+                error = error,
+            )
+
+            viewModel.trySendAction(
+                VaultAction.OverflowOptionClick(
+                    overflowAction = ListingItemOverflowAction.VaultAction.ArchiveClick(
+                        cipherId = "mockId-1",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                DEFAULT_STATE.copy(
+                    dialog = VaultState.DialogState.Error(
+                        title = BitwardenString.an_error_has_occurred.asText(),
+                        message = errorMessage.asText(),
+                        error = error,
+                    ),
+                ),
+                viewModel.stateFlow.value,
+            )
+        }
+
     @Test
     fun `UnarchiveClick with UnarchiveCipherResult Success should emit a ShowSnackbar event`() =
         runTest {
@@ -807,6 +959,46 @@ class VaultViewModelTest : BaseViewModelTest() {
             viewModel.stateFlow.value,
         )
     }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `UnarchiveClick with UnarchiveCipherResult error with errorMessage should display that message`() =
+        runTest {
+            val cipherView = createMockCipherView(number = 1, clock = clock)
+
+            val viewModel = createViewModel()
+
+            val errorMessage = "You do not have permission to edit this."
+            val error = Throwable("Oh dang.")
+            coEvery {
+                vaultRepository.unarchiveCipher(
+                    cipherId = "mockId-1",
+                    cipherView = cipherView,
+                )
+            } returns UnarchiveCipherResult.Error(
+                errorMessage = errorMessage,
+                error = error,
+            )
+
+            viewModel.trySendAction(
+                VaultAction.OverflowOptionClick(
+                    overflowAction = ListingItemOverflowAction.VaultAction.UnarchiveClick(
+                        cipherId = "mockId-1",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                DEFAULT_STATE.copy(
+                    dialog = VaultState.DialogState.Error(
+                        title = BitwardenString.an_error_has_occurred.asText(),
+                        message = errorMessage.asText(),
+                        error = error,
+                    ),
+                ),
+                viewModel.stateFlow.value,
+            )
+        }
 
     @Test
     fun `on LockAccountClick should call lockVault for the given account`() {
@@ -1894,7 +2086,7 @@ class VaultViewModelTest : BaseViewModelTest() {
     }
 
     @Test
-    fun `ArchiveClick with premium should emit NavigateToItemListing event with Archive type`() =
+    fun `ArchiveClick with Premium should emit NavigateToItemListing event with Archive type`() =
         runTest {
             val viewModel = createViewModel()
             viewModel.eventFlow.test {
@@ -1908,7 +2100,7 @@ class VaultViewModelTest : BaseViewModelTest() {
 
     @Suppress("MaxLineLength")
     @Test
-    fun `ArchiveClick without premium and with archived ciphers should emit NavigateToItemListing event with Archive type`() =
+    fun `ArchiveClick without Premium and with archived ciphers should emit NavigateToItemListing event with Archive type`() =
         runTest {
             mutableUserStateFlow.update {
                 DEFAULT_USER_STATE.copy(
@@ -1946,7 +2138,7 @@ class VaultViewModelTest : BaseViewModelTest() {
 
     @Suppress("MaxLineLength")
     @Test
-    fun `ArchiveClick without premium and archived ciphers should display the ArchiveRequiresPremium dialog`() =
+    fun `ArchiveClick without Premium and archived ciphers should display the ArchiveRequiresPremium dialog`() =
         runTest {
             mutableUserStateFlow.update {
                 DEFAULT_USER_STATE.copy(
@@ -3182,6 +3374,22 @@ class VaultViewModelTest : BaseViewModelTest() {
     }
 
     @Test
+    fun `when PREMIUM_UPGRADED relay emits, snackbar is shown`() =
+        runTest {
+            val viewModel = createViewModel()
+            val expectedSnackbarData = BitwardenSnackbarData(
+                message = BitwardenString.upgraded_to_premium.asText(),
+            )
+            viewModel.eventFlow.test {
+                mutableSnackbarDataFlow.tryEmit(expectedSnackbarData)
+                assertEquals(
+                    VaultEvent.ShowSnackbar(expectedSnackbarData),
+                    awaitItem(),
+                )
+            }
+        }
+
+    @Test
     fun `when account switch action is handled, clear snackbar relay buffer should be called`() =
         runTest {
             val viewModel = createViewModel()
@@ -3589,12 +3797,37 @@ class VaultViewModelTest : BaseViewModelTest() {
             }
         }
 
+    @Suppress("MaxLineLength")
+    @Test
+    fun `CredentialExchangeProtocolExportFlagUpdateReceive should unregister when flag is enabled but isFdroid is true`() =
+        runTest {
+            every { buildInfoManager.isFdroid } returns true
+            mutableCxpExportFeatureFlagFlow.value = false
+            coEvery { credentialExchangeRegistryManager.unregister() } just awaits
+
+            val viewModel = createViewModel()
+
+            viewModel.trySendAction(
+                VaultAction.Internal.CredentialExchangeProtocolExportFlagUpdateReceive(
+                    isCredentialExchangeProtocolExportEnabled = true,
+                ),
+            )
+
+            coVerify {
+                credentialExchangeRegistryManager.unregister()
+            }
+            coVerify(exactly = 0) {
+                credentialExchangeRegistryManager.register()
+            }
+        }
+
     private fun createViewModel(): VaultViewModel =
         VaultViewModel(
             authRepository = authRepository,
             environmentRepository = environmentRepository,
             clipboardManager = clipboardManager,
             policyManager = policyManager,
+            premiumStateManager = premiumStateManager,
             clock = clock,
             settingsRepository = settingsRepository,
             vaultRepository = vaultRepository,
@@ -3606,6 +3839,7 @@ class VaultViewModelTest : BaseViewModelTest() {
             networkConnectionManager = networkConnectionManager,
             browserAutofillDialogManager = browserAutofillDialogManager,
             credentialExchangeRegistryManager = credentialExchangeRegistryManager,
+            buildInfoManager = buildInfoManager,
             featureFlagManager = featureFlagManager,
         )
 }
@@ -3650,6 +3884,7 @@ private val DEFAULT_ACTIVE_ACCOUNT = UserState.Account(
     onboardingStatus = OnboardingStatus.COMPLETE,
     firstTimeState = DEFAULT_FIRST_TIME_STATE,
     isExportable = true,
+    creationDate = Instant.parse("2023-10-01T12:00:00Z"),
 )
 
 private val DEFAULT_INACTIVE_ACCOUNT = UserState.Account(
@@ -3671,6 +3906,7 @@ private val DEFAULT_INACTIVE_ACCOUNT = UserState.Account(
     onboardingStatus = OnboardingStatus.COMPLETE,
     firstTimeState = DEFAULT_FIRST_TIME_STATE,
     isExportable = true,
+    creationDate = Instant.parse("2023-10-01T12:00:00Z"),
 )
 
 private val DEFAULT_USER_STATE = UserState(
@@ -3727,4 +3963,25 @@ private fun createMockVaultState(
         restrictItemTypesPolicyOrgIds = emptyList(),
         isArchiveEnabled = true,
         isIntroducingArchiveActionCardDismissed = false,
+        isPremiumUpgradeBannerEligible = false,
     )
+
+private val DEFAULT_CONTENT_VIEW_STATE = VaultState.ViewState.Content(
+    itemTypesCount = 0,
+    loginItemsCount = 0,
+    cardItemsCount = 0,
+    identityItemsCount = 0,
+    secureNoteItemsCount = 0,
+    sshKeyItemsCount = 0,
+    totpItemsCount = 0,
+    favoriteItems = emptyList(),
+    folderItems = emptyList(),
+    noFolderItems = emptyList(),
+    collectionItems = emptyList(),
+    trashItemsCount = 0,
+    archivedItemsCount = null,
+    archiveEnabled = false,
+    archiveSubText = null,
+    archiveEndIcon = null,
+    showCardGroup = true,
+)

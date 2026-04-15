@@ -27,6 +27,7 @@ import com.bitwarden.ui.platform.components.appbar.NavigationIcon
 import com.bitwarden.ui.platform.components.appbar.action.BitwardenOverflowActionItem
 import com.bitwarden.ui.platform.components.appbar.action.BitwardenSearchActionItem
 import com.bitwarden.ui.platform.components.appbar.model.OverflowMenuItemData
+import com.bitwarden.ui.platform.components.button.model.BitwardenButtonData
 import com.bitwarden.ui.platform.components.content.BitwardenErrorContent
 import com.bitwarden.ui.platform.components.content.BitwardenLoadingContent
 import com.bitwarden.ui.platform.components.dialog.BitwardenBasicDialog
@@ -453,6 +454,7 @@ private fun VaultItemListingScaffold(
                     }
                     BitwardenSearchActionItem(
                         contentDescription = stringResource(id = BitwardenString.search_vault),
+                        isDisplayed = state.shouldShowSearchIcon,
                         onClick = vaultItemListingHandlers.searchIconClick,
                     )
                     BitwardenOverflowActionItem(
@@ -526,7 +528,10 @@ private fun VaultItemListingScaffold(
             is VaultItemListingState.ViewState.Error -> {
                 BitwardenErrorContent(
                     message = state.viewState.message(),
-                    onTryAgainClick = vaultItemListingHandlers.refreshClick,
+                    buttonData = BitwardenButtonData(
+                        label = BitwardenString.try_again.asText(),
+                        onClick = vaultItemListingHandlers.refreshClick,
+                    ),
                     modifier = Modifier.fillMaxSize(),
                 )
             }

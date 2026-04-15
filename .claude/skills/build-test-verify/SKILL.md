@@ -39,9 +39,14 @@ If builds fail resolving the Bitwarden SDK, verify `GITHUB_TOKEN` in `user.prope
 
 **IMPORTANT**: The app module uses the `standard` flavor. Always use `testStandardDebugUnitTest`, NOT `testDebugUnitTest`.
 
+**IMPORTANT**: Always pipe test output through a filter that captures failures on the first run. Gradle suppresses detailed failure output by default, so use `2>&1 | grep -E "FAILED|BUILD|expected:|actual:|AssertionError|failures" | head -30` to see pass/fail results and assertion details without needing a second run.
+
 ```bash
 # App module tests (correct flavor!)
-./gradlew app:testStandardDebugUnitTest
+./gradlew app:testStandardDebugUnitTest 2>&1 | grep -E "FAILED|BUILD|expected:|actual:|AssertionError|failures" | head -30
+
+# Run specific test classes
+./gradlew app:testStandardDebugUnitTest --tests "com.x8bit.bitwarden.SomeTest" 2>&1 | grep -E "FAILED|BUILD|expected:|actual:|AssertionError|failures" | head -30
 
 # Run all unit tests across all modules
 ./gradlew test
@@ -54,6 +59,17 @@ If builds fail resolving the Bitwarden SDK, verify `GITHUB_TOKEN` in `user.prope
 
 # Authenticator module
 ./gradlew authenticator:testStandardDebugUnitTest
+```
+
+### Reading Test Reports
+
+If you need full failure details beyond what grep captures, check the HTML test report:
+
+```bash
+# After a test run, open the report at:
+# app/build/reports/tests/testStandardDebugUnitTest/index.html
+# Or read individual failure XML:
+find app/build/test-results -name "*.xml" -exec grep -l "failure" {} \;
 ```
 
 ### Test Structure
@@ -78,9 +94,16 @@ ui/src/testFixtures/             # UI test utilities (BaseViewModelTest, BaseCom
 
 ## Lint & Static Analysis
 
+**IMPORTANT**: Prefer running detekt on modified files only — a full project scan is slow and unnecessary during development. The project supports a `-Pprecommit=true` flag that limits detekt to staged files.
+
+**IMPORTANT**: Always pipe detekt output through a filter to capture errors on the first run. Detekt prints violation details to stderr/stdout but Gradle can obscure them. Use the grep pattern below to see violations immediately.
+
 ```bash
-# Detekt (static analysis)
-./gradlew detekt
+# Detekt on staged files only (preferred during development)
+git add -u && ./gradlew -Pprecommit=true detekt 2>&1 | grep -E "FAILED|BUILD|Line |Rule |Signature|detekt" | head -40
+
+# Detekt on all files (full scan, use sparingly)
+./gradlew detekt 2>&1 | grep -E "FAILED|BUILD|Line |Rule |Signature|detekt" | head -40
 
 # Android Lint
 ./gradlew lint
@@ -88,6 +111,10 @@ ui/src/testFixtures/             # UI test utilities (BaseViewModelTest, BaseCom
 # Full validation suite (detekt + lint + tests + coverage)
 ./fastlane check
 ```
+
+### How `-Pprecommit=true` Works
+
+The root `build.gradle.kts` configures detekt tasks to use `git diff --name-only --cached` when this property is set, limiting analysis to staged files only. This is the same mechanism used by the project's pre-commit hook. Stage your changes with `git add` before running.
 
 ---
 

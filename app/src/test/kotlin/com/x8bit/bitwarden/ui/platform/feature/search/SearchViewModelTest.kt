@@ -317,7 +317,7 @@ class SearchViewModelTest : BaseViewModelTest() {
     }
 
     @Test
-    fun `ArchiveClick without premium should show ArchiveRequiresPremium dialog`() = runTest {
+    fun `ArchiveClick without Premium should show ArchiveRequiresPremium dialog`() = runTest {
         mutableUserStateFlow.update {
             it?.copy(accounts = listOf(DEFAULT_ACCOUNT.copy(isPremium = false)))
         }
@@ -398,6 +398,46 @@ class SearchViewModelTest : BaseViewModelTest() {
         )
     }
 
+    @Suppress("MaxLineLength")
+    @Test
+    fun `ArchiveClick with ArchiveCipherResult error with errorMessage should display that message`() =
+        runTest {
+            val cipherView = createMockCipherView(number = 1, clock = clock)
+
+            val viewModel = createViewModel(initialState = null)
+
+            val errorMessage = "You do not have permission to edit this."
+            val error = Throwable("Oh dang.")
+            coEvery {
+                vaultRepository.archiveCipher(
+                    cipherId = "mockId-1",
+                    cipherView = cipherView,
+                )
+            } returns ArchiveCipherResult.Error(
+                errorMessage = errorMessage,
+                error = error,
+            )
+
+            viewModel.trySendAction(
+                SearchAction.OverflowOptionClick(
+                    overflowAction = ListingItemOverflowAction.VaultAction.ArchiveClick(
+                        cipherId = "mockId-1",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                DEFAULT_STATE.copy(
+                    dialogState = SearchState.DialogState.Error(
+                        title = BitwardenString.an_error_has_occurred.asText(),
+                        message = errorMessage.asText(),
+                        throwable = error,
+                    ),
+                ),
+                viewModel.stateFlow.value,
+            )
+        }
+
     @Test
     fun `UnarchiveClick with UnarchiveCipherResult Success should emit a ShowSnackbar event`() =
         runTest {
@@ -455,6 +495,46 @@ class SearchViewModelTest : BaseViewModelTest() {
             viewModel.stateFlow.value,
         )
     }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `UnarchiveClick with UnarchiveCipherResult error with errorMessage should display that message`() =
+        runTest {
+            val cipherView = createMockCipherView(number = 1, clock = clock)
+
+            val viewModel = createViewModel(initialState = null)
+
+            val errorMessage = "You do not have permission to edit this."
+            val error = Throwable("Oh dang.")
+            coEvery {
+                vaultRepository.unarchiveCipher(
+                    cipherId = "mockId-1",
+                    cipherView = cipherView,
+                )
+            } returns UnarchiveCipherResult.Error(
+                errorMessage = errorMessage,
+                error = error,
+            )
+
+            viewModel.trySendAction(
+                SearchAction.OverflowOptionClick(
+                    overflowAction = ListingItemOverflowAction.VaultAction.UnarchiveClick(
+                        cipherId = "mockId-1",
+                    ),
+                ),
+            )
+
+            assertEquals(
+                DEFAULT_STATE.copy(
+                    dialogState = SearchState.DialogState.Error(
+                        title = BitwardenString.an_error_has_occurred.asText(),
+                        message = errorMessage.asText(),
+                        throwable = error,
+                    ),
+                ),
+                viewModel.stateFlow.value,
+            )
+        }
 
     @Test
     fun `AutofillItemClick should call emitAccessibilitySelection`() = runTest {
@@ -1364,7 +1444,7 @@ class SearchViewModelTest : BaseViewModelTest() {
         setupMockUri()
         val ciphers = listOf(createMockCipherListView(number = 1))
         val expectedViewState = SearchState.ViewState.Content(
-            displayItems = listOf(createMockDisplayItemForCipher(number = 1)),
+            displayItems = persistentListOf(createMockDisplayItemForCipher(number = 1)),
         )
         every {
             ciphers.filterAndOrganize(
@@ -1404,7 +1484,7 @@ class SearchViewModelTest : BaseViewModelTest() {
         assertEquals(
             DEFAULT_STATE.copy(
                 viewState = SearchState.ViewState.Content(
-                    displayItems = listOf(
+                    displayItems = persistentListOf(
                         createMockDisplayItemForCipher(number = 1),
                     ),
                 ),
@@ -1476,7 +1556,7 @@ class SearchViewModelTest : BaseViewModelTest() {
         setupMockUri()
         val ciphers = listOf(createMockCipherListView(number = 1))
         val expectedViewState = SearchState.ViewState.Content(
-            displayItems = listOf(createMockDisplayItemForCipher(number = 1)),
+            displayItems = persistentListOf(createMockDisplayItemForCipher(number = 1)),
         )
         every {
             ciphers.filterAndOrganize(
@@ -1517,7 +1597,7 @@ class SearchViewModelTest : BaseViewModelTest() {
         assertEquals(
             DEFAULT_STATE.copy(
                 viewState = SearchState.ViewState.Content(
-                    displayItems = listOf(
+                    displayItems = persistentListOf(
                         createMockDisplayItemForCipher(number = 1),
                     ),
                 ),
@@ -1595,7 +1675,7 @@ class SearchViewModelTest : BaseViewModelTest() {
         setupMockUri()
         val ciphers = listOf(createMockCipherListView(number = 1))
         val expectedViewState = SearchState.ViewState.Content(
-            displayItems = listOf(createMockDisplayItemForCipher(number = 1)),
+            displayItems = persistentListOf(createMockDisplayItemForCipher(number = 1)),
         )
         every {
             ciphers.filterAndOrganize(
@@ -1717,7 +1797,7 @@ class SearchViewModelTest : BaseViewModelTest() {
         setupMockUri()
         val ciphers = listOf(createMockCipherListView(number = 1))
         val expectedViewState = SearchState.ViewState.Content(
-            displayItems = listOf(createMockDisplayItemForCipher(number = 1)),
+            displayItems = persistentListOf(createMockDisplayItemForCipher(number = 1)),
         )
         every {
             ciphers.filterAndOrganize(
@@ -1757,7 +1837,7 @@ class SearchViewModelTest : BaseViewModelTest() {
         assertEquals(
             DEFAULT_STATE.copy(
                 viewState = SearchState.ViewState.Content(
-                    displayItems = listOf(
+                    displayItems = persistentListOf(
                         createMockDisplayItemForCipher(number = 1),
                     ),
                 ),
@@ -1951,7 +2031,7 @@ class SearchViewModelTest : BaseViewModelTest() {
         val cipherListView = createMockCipherListView(number = 1)
         val ciphers = listOf(cipherListView)
         val expectedViewState = SearchState.ViewState.Content(
-            displayItems = listOf(createMockDisplayItemForCipher(number = 1)),
+            displayItems = persistentListOf(createMockDisplayItemForCipher(number = 1)),
         )
         every {
             ciphers.filterAndOrganize(
@@ -2037,6 +2117,7 @@ private val DEFAULT_ACCOUNT = UserState.Account(
     onboardingStatus = OnboardingStatus.COMPLETE,
     firstTimeState = FirstTimeState(showImportLoginsCard = true),
     isExportable = true,
+    creationDate = null,
 )
 private val DEFAULT_USER_STATE = UserState(
     activeUserId = "activeUserId",
@@ -2057,7 +2138,7 @@ private val AUTOFILL_SELECTION_DATA =
 private val INITIAL_STATE_FOR_AUTOFILL =
     DEFAULT_STATE.copy(
         viewState = SearchState.ViewState.Content(
-            displayItems = listOf(createMockDisplayItemForCipher(number = 1)),
+            displayItems = persistentListOf(createMockDisplayItemForCipher(number = 1)),
         ),
         autofillSelectionData = AUTOFILL_SELECTION_DATA,
     )
