@@ -60,6 +60,7 @@ import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockLoginView
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSdkCipher
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSendView
 import com.x8bit.bitwarden.data.vault.manager.model.GetCipherResult
+import com.x8bit.bitwarden.data.vault.manager.model.SyncVaultDataResult
 import com.x8bit.bitwarden.data.vault.repository.VaultRepository
 import com.x8bit.bitwarden.data.vault.repository.model.ArchiveCipherResult
 import com.x8bit.bitwarden.data.vault.repository.model.GenerateTotpResult
@@ -186,6 +187,9 @@ class VaultViewModelTest : BaseViewModelTest() {
         every { vaultFilterType = any() } just runs
         every { vaultDataStateFlow } returns mutableVaultDataStateFlow
         every { sync(forced = any()) } just runs
+        coEvery { syncForResult(forced = any()) } returns SyncVaultDataResult.Success(
+            itemsAvailable = true,
+        )
         every { syncIfNecessary() } just runs
         every { lockVaultForCurrentUser(any()) } just runs
         every { lockVault(any(), any()) } just runs
@@ -222,13 +226,10 @@ class VaultViewModelTest : BaseViewModelTest() {
         coEvery { unregister() } returns UnregisterExportResult.Success
     }
     private val mutableCxpExportFeatureFlagFlow = MutableStateFlow(false)
-    private val mutableArchiveItemsFlagFlow = MutableStateFlow(true)
     private val featureFlagManager: FeatureFlagManager = mockk {
         every {
             getFeatureFlagFlow(FlagKey.CredentialExchangeProtocolExport)
         } returns mutableCxpExportFeatureFlagFlow
-        every { getFeatureFlagFlow(FlagKey.ArchiveItems) } returns mutableArchiveItemsFlagFlow
-        every { getFeatureFlag(FlagKey.ArchiveItems) } returns mutableArchiveItemsFlagFlow.value
     }
 
     private val mutablePremiumUpgradeBannerEligibleFlow = MutableStateFlow(false)
@@ -236,6 +237,7 @@ class VaultViewModelTest : BaseViewModelTest() {
         every {
             isPremiumUpgradeBannerEligibleFlow
         } returns mutablePremiumUpgradeBannerEligibleFlow
+        every { isInAppUpgradeAvailable() } returns false
         every { dismissPremiumUpgradeBanner() } just runs
     }
 
@@ -269,6 +271,71 @@ class VaultViewModelTest : BaseViewModelTest() {
             policyManager.getActivePolicies(type = PolicyTypeJson.PERSONAL_OWNERSHIP)
         }
     }
+
+    @Test
+    fun `initial state should trigger a forced sync when KDF update is required`() = runTest {
+        every { authRepository.needsKdfUpdateToMinimums() } returns true
+        createViewModel()
+        coVerify { vaultRepository.syncForResult(forced = true) }
+        verify(exactly = 0) { vaultRepository.syncIfNecessary() }
+    }
+
+    @Test
+    fun `KDF dialog is suppressed while sync is pending even when vault data loads`() = runTest {
+        every { authRepository.needsKdfUpdateToMinimums() } returns true
+        coEvery { vaultRepository.syncForResult(forced = any()) } just awaits
+        mutableVaultDataStateFlow.value = DataState.Loaded(
+            data = VaultData(
+                decryptCipherListResult = createMockDecryptCipherListResult(
+                    number = 1,
+                    successes = emptyList(),
+                    failures = emptyList(),
+                ),
+                collectionViewList = emptyList(),
+                folderViewList = emptyList(),
+                sendViewList = emptyList(),
+            ),
+        )
+        val viewModel = createViewModel()
+        assertEquals(
+            DEFAULT_STATE.copy(
+                dialog = null,
+                viewState = VaultState.ViewState.NoItems,
+                isAwaitingKdfSync = true,
+            ),
+            viewModel.stateFlow.value,
+        )
+    }
+
+    @Test
+    fun `KDF dialog is not shown after sync completes when KDF update is no longer needed`() =
+        runTest {
+            every { authRepository.needsKdfUpdateToMinimums() } returns true andThen false
+            val viewModel = createViewModel()
+            assertEquals(
+                DEFAULT_STATE.copy(dialog = null),
+                viewModel.stateFlow.value,
+            )
+        }
+
+    @Test
+    fun `KDF dialog is shown after sync completes when KDF update is still needed`() =
+        runTest {
+            every { authRepository.needsKdfUpdateToMinimums() } returns true
+            val viewModel = createViewModel()
+            @Suppress("MaxLineLength")
+            assertEquals(
+                DEFAULT_STATE.copy(
+                    dialog = VaultState.DialogState.VaultLoadKdfUpdateRequired(
+                        title = BitwardenString.update_your_encryption_settings.asText(),
+                        message = BitwardenString
+                            .the_new_recommended_encryption_settings_will_improve_your_account_desc_long
+                            .asText(),
+                    ),
+                ),
+                viewModel.stateFlow.value,
+            )
+        }
 
     @Test
     fun `IntroducingArchiveActionCardDismissedFlow updates should update the state accordingly`() =
@@ -395,7 +462,6 @@ class VaultViewModelTest : BaseViewModelTest() {
         val state = createMockVaultState(viewState = contentViewState).copy(
             isPremiumUpgradeBannerEligible = false,
             isPremium = true,
-            isArchiveEnabled = true,
             isIntroducingArchiveActionCardDismissed = false,
         )
 
@@ -411,7 +477,6 @@ class VaultViewModelTest : BaseViewModelTest() {
         val state = createMockVaultState(viewState = contentViewState).copy(
             isPremiumUpgradeBannerEligible = false,
             isPremium = false,
-            isArchiveEnabled = true,
             isIntroducingArchiveActionCardDismissed = false,
         )
 
@@ -763,20 +828,36 @@ class VaultViewModelTest : BaseViewModelTest() {
     }
 
     @Test
-    fun `UpgradeToPremiumClick should emit NavigateToUrl`() = runTest {
-        val viewModel = createViewModel()
-        viewModel.eventFlow.test {
-            viewModel.trySendAction(VaultAction.UpgradeToPremiumClick)
-            assertEquals(
-                VaultEvent.NavigateToUrl(
-                    url = "https://vault.bitwarden.com/#/" +
-                        "settings/subscription/premium" +
-                        "?callToAction=upgradeToPremium",
-                ),
-                awaitItem(),
-            )
+    fun `UpgradeToPremiumClick should emit NavigateToUrl when in-app upgrade not available`() =
+        runTest {
+            val viewModel = createViewModel()
+            viewModel.eventFlow.test {
+                viewModel.trySendAction(VaultAction.UpgradeToPremiumClick)
+                assertEquals(
+                    VaultEvent.NavigateToUrl(
+                        url = "https://vault.bitwarden.com/#/" +
+                            "settings/subscription/premium" +
+                            "?callToAction=upgradeToPremium",
+                    ),
+                    awaitItem(),
+                )
+            }
         }
-    }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `UpgradeToPremiumClick should emit NavigateToUpgradePremium when in-app upgrade available`() =
+        runTest {
+            every { premiumStateManager.isInAppUpgradeAvailable() } returns true
+            val viewModel = createViewModel()
+            viewModel.eventFlow.test {
+                viewModel.trySendAction(VaultAction.UpgradeToPremiumClick)
+                assertEquals(
+                    VaultEvent.NavigateToUpgradePremium,
+                    awaitItem(),
+                )
+            }
+        }
 
     @Test
     fun `ArchiveClick without Premium should show ArchiveRequiresPremium dialog`() = runTest {
@@ -1203,7 +1284,6 @@ class VaultViewModelTest : BaseViewModelTest() {
                 baseIconUrl = viewModel.stateFlow.value.baseIconUrl,
                 hasMasterPassword = true,
                 restrictItemTypesPolicyOrgIds = emptyList(),
-                isArchiveEnabled = true,
             ),
         )
             .copy(
@@ -1229,7 +1309,6 @@ class VaultViewModelTest : BaseViewModelTest() {
                     baseIconUrl = viewModel.stateFlow.value.baseIconUrl,
                     hasMasterPassword = true,
                     restrictItemTypesPolicyOrgIds = emptyList(),
-                    isArchiveEnabled = true,
                 ),
             ),
             viewModel.stateFlow.value,
@@ -1365,7 +1444,6 @@ class VaultViewModelTest : BaseViewModelTest() {
                     itemTypesCount = CipherType.entries.size,
                     sshKeyItemsCount = 1,
                     archivedItemsCount = 0,
-                    archiveEnabled = true,
                     archiveSubText = null,
                     archiveEndIcon = null,
                     showCardGroup = true,
@@ -1392,10 +1470,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                     noFolderItems = listOf(),
                     trashItemsCount = 0,
                     totpItemsCount = 1,
-                    itemTypesCount = 5,
+                    itemTypesCount = 6,
                     sshKeyItemsCount = 0,
                     archivedItemsCount = 0,
-                    archiveEnabled = true,
                     archiveSubText = null,
                     archiveEndIcon = null,
                     showCardGroup = true,
@@ -1531,10 +1608,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                     noFolderItems = listOf(),
                     trashItemsCount = 0,
                     totpItemsCount = 1,
-                    itemTypesCount = 5,
+                    itemTypesCount = 6,
                     sshKeyItemsCount = 0,
                     archivedItemsCount = 0,
-                    archiveEnabled = true,
                     archiveSubText = null,
                     archiveEndIcon = null,
                     showCardGroup = true,
@@ -1672,10 +1748,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                         noFolderItems = listOf(),
                         trashItemsCount = 0,
                         totpItemsCount = 1,
-                        itemTypesCount = 5,
+                        itemTypesCount = 6,
                         sshKeyItemsCount = 0,
                         archivedItemsCount = 0,
-                        archiveEnabled = true,
                         archiveSubText = null,
                         archiveEndIcon = null,
                         showCardGroup = true,
@@ -1740,10 +1815,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                         noFolderItems = listOf(),
                         trashItemsCount = 0,
                         totpItemsCount = 1,
-                        itemTypesCount = 5,
+                        itemTypesCount = 6,
                         sshKeyItemsCount = 0,
                         archivedItemsCount = 0,
-                        archiveEnabled = true,
                         archiveSubText = null,
                         archiveEndIcon = null,
                         showCardGroup = true,
@@ -1856,10 +1930,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                         noFolderItems = listOf(),
                         trashItemsCount = 0,
                         totpItemsCount = 1,
-                        itemTypesCount = 5,
+                        itemTypesCount = 6,
                         sshKeyItemsCount = 0,
                         archivedItemsCount = 0,
-                        archiveEnabled = true,
                         archiveSubText = null,
                         archiveEndIcon = null,
                         showCardGroup = true,
@@ -1949,7 +2022,6 @@ class VaultViewModelTest : BaseViewModelTest() {
                         itemTypesCount = CipherType.entries.size,
                         sshKeyItemsCount = 1,
                         archivedItemsCount = 0,
-                        archiveEnabled = true,
                         archiveSubText = null,
                         archiveEndIcon = null,
                         showCardGroup = true,
@@ -2182,10 +2254,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                         noFolderItems = listOf(),
                         trashItemsCount = 0,
                         totpItemsCount = 0,
-                        itemTypesCount = 5,
+                        itemTypesCount = 6,
                         sshKeyItemsCount = 0,
                         archivedItemsCount = null,
-                        archiveEnabled = true,
                         archiveSubText = BitwardenString.premium_subscription_required.asText(),
                         archiveEndIcon = BitwardenDrawable.ic_locked,
                         showCardGroup = true,
@@ -2289,10 +2360,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                         noFolderItems = listOf(),
                         trashItemsCount = 0,
                         totpItemsCount = 0,
-                        itemTypesCount = 5,
+                        itemTypesCount = 6,
                         sshKeyItemsCount = 0,
                         archivedItemsCount = 1,
-                        archiveEnabled = true,
                         archiveSubText = null,
                         archiveEndIcon = null,
                         showCardGroup = true,
@@ -2362,10 +2432,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                         noFolderItems = listOf(),
                         trashItemsCount = 0,
                         totpItemsCount = 1,
-                        itemTypesCount = 5,
+                        itemTypesCount = 6,
                         sshKeyItemsCount = 0,
                         archivedItemsCount = 0,
-                        archiveEnabled = true,
                         archiveSubText = null,
                         archiveEndIcon = null,
                         showCardGroup = true,
@@ -3662,10 +3731,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                         noFolderItems = listOf(),
                         trashItemsCount = 0,
                         totpItemsCount = 2,
-                        itemTypesCount = 5,
+                        itemTypesCount = 6,
                         sshKeyItemsCount = 0,
                         archivedItemsCount = 0,
-                        archiveEnabled = true,
                         archiveSubText = null,
                         archiveEndIcon = null,
                         showCardGroup = true,
@@ -3724,10 +3792,9 @@ class VaultViewModelTest : BaseViewModelTest() {
                         noFolderItems = listOf(),
                         trashItemsCount = 0,
                         totpItemsCount = 2,
-                        itemTypesCount = 5,
+                        itemTypesCount = 6,
                         sshKeyItemsCount = 0,
                         archivedItemsCount = 0,
-                        archiveEnabled = true,
                         archiveSubText = null,
                         archiveEndIcon = null,
                         showCardGroup = true,
@@ -3961,7 +4028,6 @@ private fun createMockVaultState(
         cipherDecryptionFailureIds = persistentListOf(),
         hasShownDecryptionFailureAlert = false,
         restrictItemTypesPolicyOrgIds = emptyList(),
-        isArchiveEnabled = true,
         isIntroducingArchiveActionCardDismissed = false,
         isPremiumUpgradeBannerEligible = false,
     )
@@ -3980,7 +4046,6 @@ private val DEFAULT_CONTENT_VIEW_STATE = VaultState.ViewState.Content(
     collectionItems = emptyList(),
     trashItemsCount = 0,
     archivedItemsCount = null,
-    archiveEnabled = false,
     archiveSubText = null,
     archiveEndIcon = null,
     showCardGroup = true,
