@@ -66,7 +66,17 @@ class DebugMenuViewModel @Inject constructor(
             DebugMenuAction.TriggerCookieAcquisition -> handleTriggerCookieAcquisition()
             DebugMenuAction.ClearSsoCookies -> handleClearSsoCookies()
             DebugMenuAction.ResetPremiumUpgradeBanner -> handleResetPremiumUpgradeBanner()
+            DebugMenuAction.ShowUpgradedToPremiumCard -> handleShowUpgradedToPremiumCard()
+            DebugMenuAction.ResetAccessibilityDisclaimer -> handleResetAccessibilityDisclaimer()
         }
+    }
+
+    private fun handleResetAccessibilityDisclaimer() {
+        debugMenuRepository.resetAccessibilityDisclaimer()
+    }
+
+    private fun handleShowUpgradedToPremiumCard() {
+        debugMenuRepository.showUpgradedToPremiumCard()
     }
 
     private fun handleResetCoachMarkTourStatuses() {
@@ -182,6 +192,11 @@ sealed class DebugMenuAction {
     data object RestartOnboarding : DebugMenuAction()
 
     /**
+     * The user has clicked the reset accessibility disclaimer button.
+     */
+    data object ResetAccessibilityDisclaimer : DebugMenuAction()
+
+    /**
      * The user has clicked the restart onboarding button for the onboarding section.
      */
     data object RestartOnboardingCarousel : DebugMenuAction()
@@ -215,6 +230,11 @@ sealed class DebugMenuAction {
      * User has clicked to reset the Premium upgrade banner dismiss status.
      */
     data object ResetPremiumUpgradeBanner : DebugMenuAction()
+
+    /**
+     * User has clicked to force the "Upgraded to Premium" action card to display.
+     */
+    data object ShowUpgradedToPremiumCard : DebugMenuAction()
 
     /**
      * Internal actions not triggered from the UI.

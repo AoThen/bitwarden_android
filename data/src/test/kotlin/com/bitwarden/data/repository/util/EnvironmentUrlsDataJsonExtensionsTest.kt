@@ -193,6 +193,15 @@ class EnvironmentUrlsDataJsonExtensionsTest {
         )
     }
 
+    @Test
+    fun `labelOrBaseUrlHost should correctly convert FedRAMP environment to the correct label`() {
+        val environment = EnvironmentUrlDataJson.DEFAULT_FED_RAMP
+        assertEquals(
+            Environment.FedRamp.label,
+            environment.labelOrBaseUrlHost,
+        )
+    }
+
     @Suppress("MaxLineLength")
     @Test
     fun `labelOrBaseUrlHost should correctly convert self hosted environment to the correct label`() {
@@ -216,6 +225,14 @@ class EnvironmentUrlsDataJsonExtensionsTest {
         assertEquals(
             Environment.Eu,
             EnvironmentUrlDataJson.DEFAULT_EU.toEnvironmentUrls(),
+        )
+    }
+
+    @Test
+    fun `toEnvironmentUrls should correctly convert FedRAMP urls to the expected type`() {
+        assertEquals(
+            Environment.FedRamp,
+            EnvironmentUrlDataJson.DEFAULT_FED_RAMP.toEnvironmentUrls(),
         )
     }
 
@@ -251,6 +268,14 @@ class EnvironmentUrlsDataJsonExtensionsTest {
         assertEquals(
             Environment.Eu,
             EnvironmentUrlDataJson.DEFAULT_EU.toEnvironmentUrlsOrDefault(),
+        )
+    }
+
+    @Test
+    fun `toEnvironmentUrlsOrDefault should correctly convert FedRAMP urls to the expected type`() {
+        assertEquals(
+            Environment.FedRamp,
+            EnvironmentUrlDataJson.DEFAULT_FED_RAMP.toEnvironmentUrlsOrDefault(),
         )
     }
 
@@ -339,8 +364,7 @@ class EnvironmentUrlsDataJsonExtensionsTest {
 
     @Test
     fun `appLinksScheme should return the correct scheme for US environment`() {
-        // TODO: PM-26577 Update this to use "https"
-        val expectedScheme = "bitwarden"
+        val expectedScheme = "https"
 
         assertEquals(
             expectedScheme,
@@ -350,8 +374,7 @@ class EnvironmentUrlsDataJsonExtensionsTest {
 
     @Test
     fun `appLinksScheme should return the correct scheme for EU environment`() {
-        // TODO: PM-26577 Update this to use "https"
-        val expectedScheme = "bitwarden"
+        val expectedScheme = "https"
 
         assertEquals(
             expectedScheme,
@@ -360,9 +383,18 @@ class EnvironmentUrlsDataJsonExtensionsTest {
     }
 
     @Test
+    fun `appLinksScheme should return the correct scheme for FedRAMP environment`() {
+        val expectedScheme = "https"
+
+        assertEquals(
+            expectedScheme,
+            EnvironmentUrlDataJson.DEFAULT_FED_RAMP.appLinksScheme,
+        )
+    }
+
+    @Test
     fun `appLinksScheme should return the correct scheme for internal environment`() {
-        // TODO: PM-26577 Update this to use "https"
-        val expectedScheme = "bitwarden"
+        val expectedScheme = "https"
 
         assertEquals(
             expectedScheme,

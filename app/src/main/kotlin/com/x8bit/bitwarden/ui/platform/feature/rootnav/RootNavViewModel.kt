@@ -79,7 +79,8 @@ class RootNavViewModel @Inject constructor(
 
             userState?.activeAccount?.needsMasterPassword == true -> RootNavState.SetPassword
 
-            userState?.activeAccount?.needsPasswordReset == true -> RootNavState.ResetPassword
+            userState?.activeAccount?.isVaultUnlocked == true &&
+                userState.activeAccount.needsPasswordReset -> RootNavState.ResetPassword
 
             specialCircumstance is SpecialCircumstance.RegistrationEvent -> {
                 getRegistrationEventNavState(specialCircumstance)
@@ -209,6 +210,7 @@ class RootNavViewModel @Inject constructor(
                     SpecialCircumstance.AccountSecurityShortcut,
                     SpecialCircumstance.GeneratorShortcut,
                     is SpecialCircumstance.PremiumCheckout,
+                    SpecialCircumstance.StripePortal,
                     SpecialCircumstance.VaultShortcut,
                     SpecialCircumstance.SendShortcut,
                     is SpecialCircumstance.SearchShortcut,
@@ -267,7 +269,7 @@ class RootNavViewModel @Inject constructor(
             ?.let(::parseJwtTokenDataOrNull)
             ?.isExternal == true
         val usesKeyConnectorAndNotAdmin = this.activeAccount.organizations.any {
-            it.shouldUseKeyConnector &&
+            it.isKeyConnectorEnabled &&
                 it.role != OrganizationType.OWNER &&
                 it.role != OrganizationType.ADMIN
         }
@@ -285,6 +287,7 @@ class RootNavViewModel @Inject constructor(
             is SpecialCircumstance.AccountSecurityShortcut,
             is SpecialCircumstance.GeneratorShortcut,
             is SpecialCircumstance.PremiumCheckout,
+            is SpecialCircumstance.StripePortal,
             is SpecialCircumstance.SearchShortcut,
             is SpecialCircumstance.SendShortcut,
             is SpecialCircumstance.ShareNewSend,

@@ -19,7 +19,6 @@ import com.bitwarden.vault.CipherType
 import com.bitwarden.vault.CipherView
 import com.bitwarden.vault.FolderView
 import com.x8bit.bitwarden.data.auth.datasource.disk.AuthDiskSource
-import com.x8bit.bitwarden.data.auth.repository.util.toAccountCryptographicState
 import com.x8bit.bitwarden.data.auth.repository.util.toSdkParams
 import com.x8bit.bitwarden.data.autofill.util.login
 import com.x8bit.bitwarden.data.platform.error.NoActiveUserException
@@ -42,6 +41,7 @@ import com.x8bit.bitwarden.data.vault.repository.model.GenerateTotpResult
 import com.x8bit.bitwarden.data.vault.repository.model.ImportCredentialsResult
 import com.x8bit.bitwarden.data.vault.repository.model.TotpCodeResult
 import com.x8bit.bitwarden.data.vault.repository.model.VaultUnlockResult
+import com.x8bit.bitwarden.data.vault.repository.model.onVaultUnlockSuccess
 import com.x8bit.bitwarden.data.vault.repository.util.toEncryptedSdkCipher
 import com.x8bit.bitwarden.data.vault.repository.util.toEncryptedSdkFolder
 import com.x8bit.bitwarden.data.vault.repository.util.toSdkAccount
@@ -322,21 +322,19 @@ class VaultRepositoryImpl(
                     decryptedUserKey = decryptedUserKey,
                 ),
             )
-            .also {
-                if (it is VaultUnlockResult.Success) {
-                    encryptedBiometricsKey?.let { key ->
-                        // If this key is present, we store it and the associated IV for future use
-                        // since we want to migrate the user to a more secure form of biometrics.
-                        authDiskSource.storeUserBiometricUnlockKey(
-                            userId = userId,
-                            biometricsKey = key,
-                        )
-                        authDiskSource.storeUserBiometricInitVector(userId = userId, iv = cipher.iv)
-                    }
-                    pinProtectedUserKeyManager.deriveTemporaryPinProtectedUserKeyIfNecessary(
+            .onVaultUnlockSuccess {
+                encryptedBiometricsKey?.let { key ->
+                    // If this key is present, we store it and the associated IV for future use
+                    // since we want to migrate the user to a more secure form of biometrics.
+                    authDiskSource.storeUserBiometricUnlockKey(
                         userId = userId,
+                        biometricsKey = key,
                     )
+                    authDiskSource.storeUserBiometricInitVector(userId = userId, iv = cipher.iv)
                 }
+                pinProtectedUserKeyManager.deriveTemporaryPinProtectedUserKeyIfNecessary(
+                    userId = userId,
+                )
             }
     }
 
@@ -363,12 +361,10 @@ class VaultRepositoryImpl(
                 userId = userId,
                 initUserCryptoMethod = initUserCryptoMethod,
             )
-            .also {
-                if (it is VaultUnlockResult.Success) {
-                    pinProtectedUserKeyManager.deriveTemporaryPinProtectedUserKeyIfNecessary(
-                        userId = userId,
-                    )
-                }
+            .onVaultUnlockSuccess {
+                pinProtectedUserKeyManager.deriveTemporaryPinProtectedUserKeyIfNecessary(
+                    userId = userId,
+                )
             }
     }
 
@@ -436,6 +432,34 @@ class VaultRepositoryImpl(
                 },
                 onFailure = { GenerateTotpResult.Error(error = it) },
             )
+    }
+
+    override suspend fun getValidTotpCipherIds(isPremium: Boolean, time: Instant): Set<String> {
+        val userId = activeUserId ?: return emptySet()
+        val candidates = decryptCipherListResultStateFlow
+            .value
+            .data
+            ?.successes
+            ?.filter {
+                it.type is CipherListViewType.Login &&
+                    !it.login?.totp.isNullOrBlank() &&
+                    it.isActive
+            }
+            ?: return emptySet()
+
+        return candidates
+            .filter { cipher ->
+                (isPremium || cipher.organizationUseTotp) &&
+                    vaultSdkSource
+                        .generateTotpForCipherListView(
+                            userId = userId,
+                            cipherListView = cipher,
+                            time = time,
+                        )
+                        .isSuccess
+            }
+            .mapNotNull { it.id }
+            .toSet()
     }
 
     override suspend fun exportVaultDataToString(
@@ -531,19 +555,14 @@ class VaultRepositoryImpl(
     ): VaultUnlockResult {
         val account = authDiskSource.userState?.accounts?.get(userId)
             ?: return VaultUnlockResult.InvalidStateError(error = NoActiveUserException())
-        val accountKeys = authDiskSource.getAccountKeys(userId = userId)
-        val privateKey = accountKeys
-            ?.publicKeyEncryptionKeyPair
-            ?.wrappedPrivateKey
-            ?: authDiskSource.getPrivateKey(userId = userId)
+        val accountCryptographicState = authDiskSource
+            .getAccountCryptographicState(userId = userId)
             ?: return VaultUnlockResult.InvalidStateError(
-                error = MissingPropertyException("Private key"),
+                error = MissingPropertyException("Account Cryptographic State"),
             )
         val organizationKeys = authDiskSource.getOrganizationKeys(userId = userId)
         return vaultLockManager.unlockVault(
-            accountCryptographicState = accountKeys.toAccountCryptographicState(
-                privateKey = privateKey,
-            ),
+            accountCryptographicState = accountCryptographicState,
             userId = userId,
             email = account.profile.email,
             kdf = account.profile.toSdkParams(),

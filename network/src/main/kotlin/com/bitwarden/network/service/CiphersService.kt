@@ -9,12 +9,14 @@ import com.bitwarden.network.model.CipherJsonRequest
 import com.bitwarden.network.model.CipherMiniResponseJson
 import com.bitwarden.network.model.CreateCipherInOrganizationJsonRequest
 import com.bitwarden.network.model.CreateCipherResponseJson
+import com.bitwarden.network.model.GetCipherResponse
 import com.bitwarden.network.model.ImportCiphersJsonRequest
 import com.bitwarden.network.model.ImportCiphersResponseJson
 import com.bitwarden.network.model.ShareCipherJsonRequest
 import com.bitwarden.network.model.SyncResponseJson
 import com.bitwarden.network.model.UnarchiveCipherResponseJson
 import com.bitwarden.network.model.UpdateCipherCollectionsJsonRequest
+import com.bitwarden.network.model.UpdateCipherCollectionsResponseJson
 import com.bitwarden.network.model.UpdateCipherResponseJson
 import java.io.File
 
@@ -100,7 +102,7 @@ interface CiphersService {
     suspend fun updateCipherCollections(
         cipherId: String,
         body: UpdateCipherCollectionsJsonRequest,
-    ): Result<Unit>
+    ): Result<UpdateCipherCollectionsResponseJson>
 
     /**
      * Attempt to hard delete a cipher.
@@ -128,7 +130,7 @@ interface CiphersService {
     /**
      * Attempt to retrieve a cipher.
      */
-    suspend fun getCipher(cipherId: String): Result<SyncResponseJson.Cipher>
+    suspend fun getCipher(cipherId: String): Result<GetCipherResponse>
 
     /**
      * Attempt to retrieve a cipher's attachment data.

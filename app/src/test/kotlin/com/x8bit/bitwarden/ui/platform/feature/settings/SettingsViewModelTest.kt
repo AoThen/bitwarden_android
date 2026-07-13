@@ -2,9 +2,8 @@ package com.x8bit.bitwarden.ui.platform.feature.settings
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
-import com.bitwarden.core.data.manager.model.FlagKey
 import com.bitwarden.ui.platform.base.BaseViewModelTest
-import com.x8bit.bitwarden.data.platform.manager.FeatureFlagManager
+import com.x8bit.bitwarden.data.billing.manager.PremiumStateManager
 import com.x8bit.bitwarden.data.platform.manager.FirstTimeActionManager
 import com.x8bit.bitwarden.data.platform.manager.SpecialCircumstanceManager
 import com.x8bit.bitwarden.data.platform.manager.model.SpecialCircumstance
@@ -30,16 +29,7 @@ class SettingsViewModelTest : BaseViewModelTest() {
     private val mutableAutofillBadgeCountFlow = MutableStateFlow(0)
     private val mutableVaultBadgeCountFlow = MutableStateFlow(0)
     private val mutableSecurityBadgeCountFlow = MutableStateFlow(0)
-    private val mutableMobilePremiumUpgradeFlagFlow = MutableStateFlow(false)
 
-    private val featureFlagManager = mockk<FeatureFlagManager> {
-        every {
-            getFeatureFlag(FlagKey.MobilePremiumUpgrade)
-        } answers { mutableMobilePremiumUpgradeFlagFlow.value }
-        every {
-            getFeatureFlagFlow(FlagKey.MobilePremiumUpgrade)
-        } returns mutableMobilePremiumUpgradeFlagFlow
-    }
     private val firstTimeManager = mockk<FirstTimeActionManager> {
         every { allSecuritySettingsBadgeCountFlow } returns mutableSecurityBadgeCountFlow
         every { allAutofillSettingsBadgeCountFlow } returns mutableAutofillBadgeCountFlow
@@ -47,6 +37,17 @@ class SettingsViewModelTest : BaseViewModelTest() {
     }
     private val specialCircumstanceManager: SpecialCircumstanceManager = mockk {
         every { specialCircumstance } returns null
+    }
+
+    private val mutablePlanRowEligibleFlow = MutableStateFlow(false)
+    private val mutableUpgradedToPremiumCardEligibleFlow = MutableStateFlow(false)
+    private val mutableIsSelfHostedFlow = MutableStateFlow(false)
+    private val premiumStateManager: PremiumStateManager = mockk(relaxed = true) {
+        every { isPlanRowEligibleFlow } returns mutablePlanRowEligibleFlow
+        every {
+            isUpgradedToPremiumCardEligibleFlow
+        } returns mutableUpgradedToPremiumCardEligibleFlow
+        every { isSelfHostedFlow } returns mutableIsSelfHostedFlow
     }
 
     @BeforeEach
@@ -212,11 +213,8 @@ class SettingsViewModelTest : BaseViewModelTest() {
         }
 
     @Test
-    fun `Plan row should appear when feature flag is enabled and not preAuth`() {
-        every {
-            featureFlagManager.getFeatureFlag(FlagKey.MobilePremiumUpgrade)
-        } returns true
-        mutableMobilePremiumUpgradeFlagFlow.value = true
+    fun `Plan row should appear when plan row eligibility is true and not preAuth`() {
+        mutablePlanRowEligibleFlow.value = true
         val viewModel = createViewModel()
         assertTrue(
             viewModel.stateFlow.value.settingRows
@@ -225,10 +223,8 @@ class SettingsViewModelTest : BaseViewModelTest() {
     }
 
     @Test
-    fun `Plan row should be hidden when feature flag is disabled`() {
-        every {
-            featureFlagManager.getFeatureFlag(FlagKey.MobilePremiumUpgrade)
-        } returns false
+    fun `Plan row should be hidden when plan row eligibility is false`() {
+        mutablePlanRowEligibleFlow.value = false
         val viewModel = createViewModel()
         assertFalse(
             viewModel.stateFlow.value.settingRows
@@ -238,10 +234,7 @@ class SettingsViewModelTest : BaseViewModelTest() {
 
     @Test
     fun `Plan row should be hidden in preAuth mode`() {
-        every {
-            featureFlagManager.getFeatureFlag(FlagKey.MobilePremiumUpgrade)
-        } returns true
-        mutableMobilePremiumUpgradeFlagFlow.value = true
+        mutablePlanRowEligibleFlow.value = true
         val viewModel = createViewModel(isPreAuth = true)
         assertFalse(
             viewModel.stateFlow.value.settingRows
@@ -251,10 +244,7 @@ class SettingsViewModelTest : BaseViewModelTest() {
 
     @Test
     fun `Plan row should appear between Appearance and Other in settings rows`() {
-        every {
-            featureFlagManager.getFeatureFlag(FlagKey.MobilePremiumUpgrade)
-        } returns true
-        mutableMobilePremiumUpgradeFlagFlow.value = true
+        mutablePlanRowEligibleFlow.value = true
         val viewModel = createViewModel()
         val rows = viewModel.stateFlow.value.settingRows
         val planIndex = rows.indexOf(Settings.PLAN)
@@ -265,20 +255,16 @@ class SettingsViewModelTest : BaseViewModelTest() {
     }
 
     @Test
-    fun `Plan row should update when feature flag changes to enabled`() =
+    fun `Plan row should update when plan row eligibility changes to true`() =
         runTest {
-            every {
-                featureFlagManager.getFeatureFlag(
-                    FlagKey.MobilePremiumUpgrade,
-                )
-            } returns false
+            mutablePlanRowEligibleFlow.value = false
             val viewModel = createViewModel()
             assertFalse(
                 viewModel.stateFlow.value.settingRows
                     .contains(Settings.PLAN),
             )
 
-            mutableMobilePremiumUpgradeFlagFlow.value = true
+            mutablePlanRowEligibleFlow.value = true
             viewModel.stateFlow.test {
                 assertTrue(
                     awaitItem().settingRows.contains(Settings.PLAN),
@@ -286,10 +272,111 @@ class SettingsViewModelTest : BaseViewModelTest() {
             }
         }
 
+    @Test
+    fun `Upgraded to Premium card eligibility flow updates state`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.stateFlow.test {
+            assertEquals(DEFAULT_STATE, awaitItem())
+            mutableUpgradedToPremiumCardEligibleFlow.value = true
+            assertEquals(
+                DEFAULT_STATE.copy(isUpgradedToPremiumCardEligible = true),
+                awaitItem(),
+            )
+        }
+    }
+
+    @Test
+    fun `shouldShowUpgradedToPremiumCard is false in pre-auth even when eligible`() = runTest {
+        mutableUpgradedToPremiumCardEligibleFlow.value = true
+        val viewModel = createViewModel(isPreAuth = true)
+        assertFalse(viewModel.stateFlow.value.shouldShowUpgradedToPremiumCard)
+    }
+
+    @Test
+    fun `shouldShowUpgradedToPremiumCard is true post-auth when eligible`() = runTest {
+        mutableUpgradedToPremiumCardEligibleFlow.value = true
+        val viewModel = createViewModel(isPreAuth = false)
+        assertTrue(viewModel.stateFlow.value.shouldShowUpgradedToPremiumCard)
+    }
+
+    @Test
+    fun `UpgradedToPremiumCardClick dismisses card and emits NavigateToUrl`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.eventFlow.test {
+            viewModel.trySendAction(SettingsAction.UpgradedToPremiumCardClick)
+            assertEquals(
+                SettingsEvent.NavigateToUrl(
+                    url = "https://bitwarden.com/help/password-manager-plans/",
+                ),
+                awaitItem(),
+            )
+        }
+        verify(exactly = 1) {
+            premiumStateManager.dismissUpgradedToPremiumCard()
+        }
+    }
+
+    @Test
+    fun `UpgradedToPremiumCardDismiss dismisses card without navigating`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.trySendAction(SettingsAction.UpgradedToPremiumCardDismiss)
+        verify(exactly = 1) {
+            premiumStateManager.dismissUpgradedToPremiumCard()
+        }
+    }
+
+    @Test
+    fun `Plan row should be hidden when self-hosted status flow emits true`() {
+        mutablePlanRowEligibleFlow.value = true
+        mutableIsSelfHostedFlow.value = true
+        val viewModel = createViewModel()
+        assertFalse(
+            viewModel.stateFlow.value.settingRows
+                .contains(Settings.PLAN),
+        )
+    }
+
+    @Test
+    fun `Plan row should update when self-hosted status flow flips to true`() = runTest {
+        mutablePlanRowEligibleFlow.value = true
+        val viewModel = createViewModel()
+        assertTrue(
+            viewModel.stateFlow.value.settingRows
+                .contains(Settings.PLAN),
+        )
+
+        mutableIsSelfHostedFlow.value = true
+        viewModel.stateFlow.test {
+            assertFalse(
+                awaitItem().settingRows.contains(Settings.PLAN),
+            )
+        }
+    }
+
+    @Test
+    fun `Plan row should re-appear when self-hosted status flow flips back to false`() = runTest {
+        // Simulates the debug-disable flag being toggled on while self-hosted: the flow emits
+        // false even though the environment is still self-hosted.
+        mutablePlanRowEligibleFlow.value = true
+        mutableIsSelfHostedFlow.value = true
+        val viewModel = createViewModel()
+        assertFalse(
+            viewModel.stateFlow.value.settingRows
+                .contains(Settings.PLAN),
+        )
+
+        mutableIsSelfHostedFlow.value = false
+        viewModel.stateFlow.test {
+            assertTrue(
+                awaitItem().settingRows.contains(Settings.PLAN),
+            )
+        }
+    }
+
     private fun createViewModel(isPreAuth: Boolean = false) = SettingsViewModel(
         firstTimeActionManager = firstTimeManager,
-        featureFlagManager = featureFlagManager,
         specialCircumstanceManager = specialCircumstanceManager,
+        premiumStateManager = premiumStateManager,
         savedStateHandle = SavedStateHandle().apply {
             every { toSettingsArgs() } returns SettingsArgs(isPreAuth = isPreAuth)
         },
@@ -301,4 +388,5 @@ private val DEFAULT_STATE = SettingsState(
     autoFillCount = 0,
     securityCount = 0,
     vaultCount = 0,
+    isPlanRowEligible = false,
 )

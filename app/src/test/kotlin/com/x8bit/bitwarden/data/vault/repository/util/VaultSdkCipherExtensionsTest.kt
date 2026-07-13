@@ -6,13 +6,16 @@ import com.bitwarden.network.model.FieldTypeJson
 import com.bitwarden.network.model.UriMatchTypeJson
 import com.bitwarden.network.model.createMockAttachment
 import com.bitwarden.network.model.createMockAttachmentJsonRequest
+import com.bitwarden.network.model.createMockBankAccount
 import com.bitwarden.network.model.createMockCard
 import com.bitwarden.network.model.createMockCipher
 import com.bitwarden.network.model.createMockCipherJsonRequest
 import com.bitwarden.network.model.createMockCipherMiniResponse
+import com.bitwarden.network.model.createMockDriversLicense
 import com.bitwarden.network.model.createMockField
 import com.bitwarden.network.model.createMockIdentity
 import com.bitwarden.network.model.createMockLogin
+import com.bitwarden.network.model.createMockPassport
 import com.bitwarden.network.model.createMockPasswordHistory
 import com.bitwarden.network.model.createMockSecureNote
 import com.bitwarden.network.model.createMockSshKey
@@ -26,6 +29,7 @@ import com.bitwarden.vault.UriMatchType
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockCipherView
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockEncryptionContext
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSdkAttachment
+import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSdkBankAccount
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSdkCard
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSdkCipher
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSdkField
@@ -176,6 +180,60 @@ class VaultSdkCipherExtensionsTest {
     }
 
     @Test
+    fun `toSdkBankAccount should convert a SyncResponseJson BankAccount to an SDK BankAccount`() {
+        val syncBankAccount = createMockBankAccount(number = 1)
+        val sdkBankAccount = syncBankAccount.toSdkBankAccount()
+        assertEquals(
+            createMockSdkBankAccount(number = 1),
+            sdkBankAccount,
+        )
+    }
+
+    @Test
+    fun `toSdkBankAccount should pass null account type through to the SDK`() {
+        val syncBankAccount = createMockBankAccount(number = 1, accountType = null)
+        val sdkBankAccount = syncBankAccount.toSdkBankAccount()
+        assertNull(sdkBankAccount.accountType)
+    }
+
+    @Test
+    fun `toEncryptedNetworkBankAccount should pass null account type through`() {
+        val sdkBankAccount = createMockSdkBankAccount(number = 1).copy(accountType = null)
+        val sdkCipher = createMockSdkCipher(number = 1, clock = FIXED_CLOCK)
+            .copy(bankAccount = sdkBankAccount)
+
+        val networkCipher = sdkCipher.toEncryptedNetworkCipherResponse(
+            encryptedFor = "mockEncryptedFor-1",
+        )
+
+        assertNull(networkCipher.bankAccount?.accountType)
+    }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `toEncryptedNetworkCipher with null SDK bankAccount should produce null network bankAccount`() {
+        val sdkCipher = createMockSdkCipher(
+            number = 1,
+            clock = FIXED_CLOCK,
+        )
+            .copy(bankAccount = null)
+
+        val request = sdkCipher.toEncryptedNetworkCipher(encryptedFor = "mockEncryptedFor-1")
+
+        assertNull(request.bankAccount)
+    }
+
+    @Test
+    fun `toEncryptedNetworkCipher should map driversLicense and passport`() {
+        val sdkCipher = createMockSdkCipher(number = 1, clock = FIXED_CLOCK)
+
+        val request = sdkCipher.toEncryptedNetworkCipher(encryptedFor = "mockEncryptedFor-1")
+
+        assertEquals(createMockDriversLicense(number = 1), request.driversLicense)
+        assertEquals(createMockPassport(number = 1), request.passport)
+    }
+
+    @Test
     fun `toSdkLoginUriList should convert list of LoginUri to List of Sdk LoginUri`() {
         val syncLoginUris = listOf(
             createMockUri(number = 1),
@@ -291,6 +349,30 @@ class VaultSdkCipherExtensionsTest {
     }
 
     @Test
+    fun `toSdkCipherType should map BANK_ACCOUNT to the SDK BANK_ACCOUNT type`() {
+        assertEquals(
+            CipherType.BANK_ACCOUNT,
+            CipherTypeJson.BANK_ACCOUNT.toSdkCipherType(),
+        )
+    }
+
+    @Test
+    fun `toSdkCipherType should map LICENSE to the SDK LICENSE type`() {
+        assertEquals(
+            CipherType.DRIVERS_LICENSE,
+            CipherTypeJson.DRIVERS_LICENSE.toSdkCipherType(),
+        )
+    }
+
+    @Test
+    fun `toSdkCipherType should map PASSPORT to the SDK PASSPORT type`() {
+        assertEquals(
+            CipherType.PASSPORT,
+            CipherTypeJson.PASSPORT.toSdkCipherType(),
+        )
+    }
+
+    @Test
     fun `toSdkMatchType should convert UriMatchTypeJson to UriMatchType`() {
         val uriMatchType = UriMatchTypeJson.DOMAIN
         val sdkUriMatchType = uriMatchType.toSdkMatchType()
@@ -358,7 +440,10 @@ class VaultSdkCipherExtensionsTest {
     @Suppress("MaxLineLength")
     @Test
     fun `EncryptionContext toEncryptedNetworkCipher should convert an EncryptionContext to a Network Cipher`() {
-        val encryptionContext = createMockEncryptionContext(number = 1)
+        val encryptionContext = createMockEncryptionContext(
+            number = 1,
+            cipher = createMockSdkCipher(number = 1, clock = FIXED_CLOCK),
+        )
         assertEquals(
             createMockCipherJsonRequest(
                 number = 1,
@@ -372,7 +457,10 @@ class VaultSdkCipherExtensionsTest {
     @Suppress("MaxLineLength")
     @Test
     fun `EncryptionContext toEncryptedNetworkCipherResponse should convert an EncryptionContext to a cipher`() {
-        val encryptionContext = createMockEncryptionContext(number = 1)
+        val encryptionContext = createMockEncryptionContext(
+            number = 1,
+            cipher = createMockSdkCipher(number = 1, clock = FIXED_CLOCK),
+        )
         assertEquals(
             createMockCipher(
                 number = 1,
@@ -438,6 +526,17 @@ class VaultSdkCipherExtensionsTest {
 
         val loginType = result.type as CipherListViewType.Card
         assertNull(loginType.v1.brand)
+    }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `toFailureCipherListView should convert BankAccount Cipher to CipherListView of type BankAccount`() {
+        val cipher = createMockSdkCipher(number = 1)
+            .copy(type = CipherType.BANK_ACCOUNT)
+
+        val result = cipher.toFailureCipherListView()
+
+        assertEquals(CipherListViewType.BankAccount, result.type)
     }
 
     @Test

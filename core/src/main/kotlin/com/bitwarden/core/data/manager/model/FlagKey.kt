@@ -30,39 +30,24 @@ sealed class FlagKey<out T : Any> {
          */
         val activePasswordManagerFlags: List<FlagKey<*>> by lazy {
             listOf(
-                CredentialExchangeProtocolImport,
-                CredentialExchangeProtocolExport,
                 ForceUpdateKdfSettings,
                 NoLogoutOnKdfChange,
                 MigrateMyVaultToMyItems,
-                SendEmailVerification,
                 CardScanner,
                 MobilePremiumUpgrade,
+                ManageDevices,
                 AttachmentUpdates,
                 V2EncryptionJitPassword,
                 V2EncryptionKeyConnector,
                 V2EncryptionPassword,
                 V2EncryptionTde,
+                NewItemTypes,
+                DebugDisableSelfHostPremiumCheck,
+                FillAssistTargetingRules,
+                PoliciesInAcceptedState,
+                FedRamp,
             )
         }
-    }
-
-    /**
-     * Data object holding hte feature flag key for the Credential Exchange Protocol (CXP) import
-     * feature.
-     */
-    data object CredentialExchangeProtocolImport : FlagKey<Boolean>() {
-        override val keyName: String = "cxp-import-mobile"
-        override val defaultValue: Boolean = false
-    }
-
-    /**
-     * Data object holding the feature flag key for the Credential Exchange Protocol (CXP) export
-     * feature.
-     */
-    data object CredentialExchangeProtocolExport : FlagKey<Boolean>() {
-        override val keyName: String = "cxp-export-mobile"
-        override val defaultValue: Boolean = false
     }
 
     /**
@@ -98,14 +83,6 @@ sealed class FlagKey<out T : Any> {
     }
 
     /**
-     * Data object holding the feature flag key for the Send Email Verification feature.
-     */
-    data object SendEmailVerification : FlagKey<Boolean>() {
-        override val keyName: String = "pm-19051-send-email-verification"
-        override val defaultValue: Boolean = false
-    }
-
-    /**
      * Data object holding the feature flag key for the card scanner feature.
      */
     data object CardScanner : FlagKey<Boolean>() {
@@ -117,7 +94,7 @@ sealed class FlagKey<out T : Any> {
      * Data object holding the feature flag key for the mobile Premium upgrade feature.
      */
     data object MobilePremiumUpgrade : FlagKey<Boolean>() {
-        override val keyName: String = "PM-31697-premium-upgrade-path"
+        override val keyName: String = "pm-31697-premium-upgrade-path"
         override val defaultValue: Boolean = false
     }
 
@@ -126,6 +103,14 @@ sealed class FlagKey<out T : Any> {
      */
     data object AttachmentUpdates : FlagKey<Boolean>() {
         override val keyName: String = "pm-34224-mobile-attachment-updates"
+        override val defaultValue: Boolean = false
+    }
+
+    /**
+     * Data object holding the feature flag key for the Manage Devices feature.
+     */
+    data object ManageDevices : FlagKey<Boolean>() {
+        override val keyName: String = "pm-4516-devices-add-last-activity-date"
         override val defaultValue: Boolean = false
     }
 
@@ -158,6 +143,49 @@ sealed class FlagKey<out T : Any> {
      */
     data object V2EncryptionTde : FlagKey<Boolean>() {
         override val keyName: String = "pm-27279-v2-registration-tde-jit"
+        override val defaultValue: Boolean = false
+    }
+
+    /**
+     * Data object holding the feature flag key for new vault item types
+     * (Bank Account, Driver's License, Passport).
+     */
+    data object NewItemTypes : FlagKey<Boolean>() {
+        override val keyName: String = "pm-32009-new-item-types"
+        override val defaultValue: Boolean = false
+    }
+
+    /**
+     * Data object holding the feature flag key for the Fill Assist Targeting Rules feature.
+     */
+    data object FillAssistTargetingRules : FlagKey<Boolean>() {
+        override val keyName: String = "fill-assist-targeting-rules"
+        override val defaultValue: Boolean = false
+    }
+
+    /**
+     * Data object holding the feature flag key for the Policies In Accepted State feature.
+     */
+    data object PoliciesInAcceptedState : FlagKey<Boolean>() {
+        override val keyName: String get() = "pm-34145-policies-in-accepted-state"
+        override val defaultValue: Boolean get() = false
+    }
+
+    /**
+     * Data object holding the feature flag key for the FedRAMP feature.
+     */
+    data object FedRamp : FlagKey<Boolean>() {
+        override val keyName: String get() = "fedramp-gov-region"
+        override val defaultValue: Boolean get() = false
+    }
+
+    /**
+     * Debug-only flag that, when enabled, makes self-hosted environments behave as cloud
+     * environments for premium-upgrade gating. Used by QA to test the premium upgrade flow
+     * against internal self-hosted environments.
+     */
+    data object DebugDisableSelfHostPremiumCheck : FlagKey<Boolean>() {
+        override val keyName: String = "debug-disable-self-host-premium-check"
         override val defaultValue: Boolean = false
     }
 

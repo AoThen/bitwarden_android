@@ -10,6 +10,7 @@ import com.bitwarden.network.model.createMockCollection
 import com.bitwarden.network.model.createMockDomains
 import com.bitwarden.network.model.createMockFolder
 import com.bitwarden.network.model.createMockSend
+import com.bitwarden.network.model.createMockSyncResponse
 import com.x8bit.bitwarden.data.vault.datasource.disk.dao.FakeCiphersDao
 import com.x8bit.bitwarden.data.vault.datasource.disk.dao.FakeCollectionsDao
 import com.x8bit.bitwarden.data.vault.datasource.disk.dao.FakeDomainsDao
@@ -459,7 +460,8 @@ private val DOMAINS_1: SyncResponseJson.Domains = createMockDomains(1)
 private val FOLDER_1: SyncResponseJson.Folder = createMockFolder(2)
 private val SEND_1: SyncResponseJson.Send = createMockSend(1)
 
-private val VAULT_DATA: SyncResponseJson = SyncResponseJson(
+private val VAULT_DATA: SyncResponseJson = createMockSyncResponse(
+    number = 1,
     folders = listOf(FOLDER_1),
     collections = listOf(COLLECTION_1),
     profile = mockk<SyncResponseJson.Profile> {
@@ -588,6 +590,46 @@ private const val CIPHER_JSON = """
     "publicKey": "mockPublicKey-1",
     "privateKey": "mockPrivateKey-1",
     "keyFingerprint": "mockKeyFingerprint-1"
+  },
+  "bankAccount": {
+    "bankName": "mockBankName-1",
+    "nameOnAccount": "mockNameOnAccount-1",
+    "accountType": "mockAccountType-1",
+    "accountNumber": "mockAccountNumber-1",
+    "routingNumber": "mockRoutingNumber-1",
+    "branchNumber": "mockBranchNumber-1",
+    "pin": "mockPin-1",
+    "swiftCode": "mockSwiftCode-1",
+    "iban": "mockIban-1",
+    "bankContactPhone": "mockBankContactPhone-1"
+  },
+  "driversLicense": {
+    "firstName": "mockFirstName-1",
+    "middleName": "mockMiddleName-1",
+    "lastName": "mockLastName-1",
+    "licenseNumber": "mockLicenseNumber-1",
+    "issuingCountry": "mockIssuingCountry-1",
+    "issuingState": "mockIssuingState-1",
+    "issuingAuthority": "mockIssuingAuthority-1",
+    "expirationDate": "mockExpirationDate-1",
+    "dateOfBirth": "mockDateOfBirth-1",
+    "issueDate": "mockIssueDate-1",
+    "licenseClass": "mockLicenseClass-1",
+  },
+  "passport": {
+    "surname": "mockSurname-1",
+    "givenName": "mockGivenName-1",
+    "dateOfBirth": "mockDateOfBirth-1",
+    "birthPlace": "mockBirthPlace-1",
+    "sex": "mockSex-1",
+    "nationality": "mockNationality-1",
+    "passportNumber": "mockPassportNumber-1",
+    "passportType": "mockPassportType-1",
+    "nationalIdentificationNumber": "mockNationalIdentificationNumber-1",
+    "issuingCountry": "mockIssuingCountry-1",
+    "issuingAuthority": "mockIssuingAuthority-1",
+    "issueDate": "mockIssueDate-1",
+    "expirationDate": "mockExpirationDate-1",
   },
   "encryptedFor": "mockEncryptedFor-1"
 }

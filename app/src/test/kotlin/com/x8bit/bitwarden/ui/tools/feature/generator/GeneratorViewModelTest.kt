@@ -7,15 +7,15 @@ import com.bitwarden.core.data.repository.util.bufferedMutableSharedFlow
 import com.bitwarden.data.repository.model.Environment
 import com.bitwarden.generators.PassphraseGeneratorRequest
 import com.bitwarden.generators.PasswordGeneratorRequest
-import com.bitwarden.network.model.PolicyTypeJson
-import com.bitwarden.network.model.SyncResponseJson
-import com.bitwarden.network.model.createMockPolicy
+import com.bitwarden.policies.PolicyType
+import com.bitwarden.policies.PolicyView
 import com.bitwarden.ui.platform.base.BaseViewModelTest
 import com.bitwarden.ui.platform.resource.BitwardenString
 import com.bitwarden.ui.util.asText
 import com.x8bit.bitwarden.data.auth.datasource.disk.model.OnboardingStatus
 import com.x8bit.bitwarden.data.auth.repository.AuthRepository
 import com.x8bit.bitwarden.data.auth.repository.model.UserState
+import com.x8bit.bitwarden.data.billing.manager.PremiumStateManager
 import com.x8bit.bitwarden.data.platform.manager.FirstTimeActionManager
 import com.x8bit.bitwarden.data.platform.manager.PolicyManager
 import com.x8bit.bitwarden.data.platform.manager.ReviewPromptManager
@@ -31,6 +31,7 @@ import com.x8bit.bitwarden.data.tools.generator.repository.model.GeneratorResult
 import com.x8bit.bitwarden.data.tools.generator.repository.model.PasscodeGenerationOptions
 import com.x8bit.bitwarden.data.tools.generator.repository.model.UsernameGenerationOptions
 import com.x8bit.bitwarden.data.tools.generator.repository.util.FakeGeneratorRepository
+import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockPolicyView
 import com.x8bit.bitwarden.ui.tools.feature.generator.GeneratorState.MainType.Username.UsernameType.ForwardedEmailAlias.ServiceType
 import com.x8bit.bitwarden.ui.tools.feature.generator.GeneratorState.MainType.Username.UsernameType.ForwardedEmailAlias.ServiceTypeOption
 import com.x8bit.bitwarden.ui.tools.feature.generator.model.GeneratorMode
@@ -44,9 +45,6 @@ import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -108,10 +106,10 @@ class GeneratorViewModelTest : BaseViewModelTest() {
         )
     }
 
-    private val mutablePolicyFlow = bufferedMutableSharedFlow<List<SyncResponseJson.Policy>>()
+    private val mutablePolicyFlow = bufferedMutableSharedFlow<List<PolicyView>>()
     private val policyManager: PolicyManager = mockk {
-        every { getActivePolicies(PolicyTypeJson.PASSWORD_GENERATOR) } returns emptyList()
-        every { getActivePoliciesFlow(PolicyTypeJson.PASSWORD_GENERATOR) } returns mutablePolicyFlow
+        every { getActivePolicies(PolicyType.PASSWORD_GENERATOR) } returns emptyList()
+        every { getActivePoliciesFlow(PolicyType.PASSWORD_GENERATOR) } returns mutablePolicyFlow
     }
 
     private val reviewPromptManager: ReviewPromptManager = mockk {
@@ -122,6 +120,13 @@ class GeneratorViewModelTest : BaseViewModelTest() {
     private val firstTimeActionManager: FirstTimeActionManager = mockk {
         every { markCoachMarkTourCompleted(CoachMarkTourType.GENERATOR) } just runs
         every { shouldShowGeneratorCoachMarkFlow } returns mutableShouldShowGeneratorCoachMarkFlow
+    }
+
+    private val mutableUpgradedToPremiumCardEligibleFlow = MutableStateFlow(false)
+    private val premiumStateManager: PremiumStateManager = mockk(relaxed = true) {
+        every {
+            isUpgradedToPremiumCardEligibleFlow
+        } returns mutableUpgradedToPremiumCardEligibleFlow
     }
 
     @BeforeEach
@@ -209,26 +214,28 @@ class GeneratorViewModelTest : BaseViewModelTest() {
 
     @Test
     fun `activePolicyFlow changes should update state`() = runTest {
-        val payload = mapOf(
-            "overridePasswordType" to JsonNull,
-            "minLength" to JsonPrimitive(10),
-            "useUpper" to JsonPrimitive(true),
-            "useNumbers" to JsonPrimitive(true),
-            "useSpecial" to JsonPrimitive(true),
-            "minNumbers" to JsonPrimitive(3),
-            "minSpecial" to JsonPrimitive(3),
-            "minNumberWords" to JsonPrimitive(5),
-            "capitalize" to JsonPrimitive(true),
-            "includeNumber" to JsonPrimitive(true),
-            "useLower" to JsonPrimitive(true),
-        )
+        val payload = """
+            {
+              "overridePasswordType":null,
+              "minLength":10,
+              "useUpper":true,
+              "useNumbers":true,
+              "useSpecial":true,
+              "minNumbers":3,
+              "minSpecial":3,
+              "minNumberWords":5,
+              "capitalize":true,
+              "includeNumber":true,
+              "useLower":true
+            }
+        """
         val policies = listOf(
-            createMockPolicy(
+            createMockPolicyView(
                 organizationId = "organizationId",
                 id = "id",
-                type = PolicyTypeJson.PASSWORD_GENERATOR,
-                isEnabled = true,
-                data = JsonObject(payload),
+                type = PolicyType.PASSWORD_GENERATOR,
+                enabled = true,
+                data = payload,
             ),
         )
         val viewModel = createViewModel(state = initialPasscodeState)
@@ -236,7 +243,7 @@ class GeneratorViewModelTest : BaseViewModelTest() {
         viewModel.stateFlow.test {
             assertEquals(initialPasscodeState, awaitItem())
             every {
-                policyManager.getActivePolicies(type = PolicyTypeJson.PASSWORD_GENERATOR)
+                policyManager.getActivePolicies(type = PolicyType.PASSWORD_GENERATOR)
             } returns policies
             mutablePolicyFlow.tryEmit(value = policies)
             assertEquals(
@@ -268,7 +275,7 @@ class GeneratorViewModelTest : BaseViewModelTest() {
                 awaitItem(),
             )
             every {
-                policyManager.getActivePolicies(type = PolicyTypeJson.PASSWORD_GENERATOR)
+                policyManager.getActivePolicies(type = PolicyType.PASSWORD_GENERATOR)
             } returns emptyList()
             mutablePolicyFlow.tryEmit(value = emptyList())
             assertEquals(
@@ -579,25 +586,24 @@ class GeneratorViewModelTest : BaseViewModelTest() {
 
     @Test
     fun `Policy should overwrite password options if stricter`() {
-        val policy = createMockPolicy(
-            number = 1,
-            type = PolicyTypeJson.PASSWORD_GENERATOR,
-            isEnabled = true,
-            data = JsonObject(
-                mapOf(
-                    "overridePasswordType" to JsonNull,
-                    "minLength" to JsonPrimitive(10),
-                    "useUpper" to JsonPrimitive(true),
-                    "useNumbers" to JsonPrimitive(true),
-                    "useSpecial" to JsonPrimitive(true),
-                    "minNumbers" to JsonPrimitive(3),
-                    "minSpecial" to JsonPrimitive(3),
-                    "minNumberWords" to JsonPrimitive(5),
-                    "capitalize" to JsonPrimitive(true),
-                    "includeNumber" to JsonPrimitive(true),
-                    "useLower" to JsonPrimitive(true),
-                ),
-            ),
+        val policy = createMockPolicyView(
+            type = PolicyType.PASSWORD_GENERATOR,
+            enabled = true,
+            data = """
+              {
+                "overridePasswordType":null,
+                "minLength":10,
+                "useUpper":true,
+                "useNumbers":true,
+                "useSpecial":true,
+                "minNumbers":3,
+                "minSpecial":3,
+                "minNumberWords":5,
+                "capitalize":true,
+                "includeNumber":true,
+                "useLower":true
+              }
+            """,
         )
         every {
             policyManager.getActivePolicies(any())
@@ -630,25 +636,24 @@ class GeneratorViewModelTest : BaseViewModelTest() {
 
     @Test
     fun `Policy should overwrite passphrase options if stricter`() {
-        val policy = createMockPolicy(
-            number = 1,
-            type = PolicyTypeJson.PASSWORD_GENERATOR,
-            isEnabled = true,
-            data = JsonObject(
-                mapOf(
-                    "overridePasswordType" to JsonNull,
-                    "minLength" to JsonPrimitive(10),
-                    "useUpper" to JsonPrimitive(true),
-                    "useNumbers" to JsonPrimitive(true),
-                    "useSpecial" to JsonPrimitive(true),
-                    "minNumbers" to JsonPrimitive(3),
-                    "minSpecial" to JsonPrimitive(3),
-                    "minNumberWords" to JsonPrimitive(5),
-                    "capitalize" to JsonPrimitive(true),
-                    "includeNumber" to JsonPrimitive(true),
-                    "useLower" to JsonPrimitive(true),
-                ),
-            ),
+        val policy = createMockPolicyView(
+            type = PolicyType.PASSWORD_GENERATOR,
+            enabled = true,
+            data = """
+              {
+                "overridePasswordType":null,
+                "minLength":10,
+                "useUpper":true,
+                "useNumbers":true,
+                "useSpecial":true,
+                "minNumbers":3,
+                "minSpecial":3,
+                "minNumberWords":5,
+                "capitalize":true,
+                "includeNumber":true,
+                "useLower":true
+              }
+            """,
         )
         every {
             policyManager.getActivePolicies(any())
@@ -680,15 +685,14 @@ class GeneratorViewModelTest : BaseViewModelTest() {
 
     @Test
     fun `Policy should overwrite passwordType if has overridePasswordType`() {
-        val policy = createMockPolicy(
-            number = 1,
-            type = PolicyTypeJson.PASSWORD_GENERATOR,
-            isEnabled = true,
-            data = JsonObject(
-                mapOf(
-                    "overridePasswordType" to JsonPrimitive("passphrase"),
-                ),
-            ),
+        val policy = createMockPolicyView(
+            type = PolicyType.PASSWORD_GENERATOR,
+            enabled = true,
+            data = """
+              {
+                "overridePasswordType":"passphrase"
+              }
+            """,
         )
         every {
             policyManager.getActivePolicies(any())
@@ -709,25 +713,25 @@ class GeneratorViewModelTest : BaseViewModelTest() {
     @Test
     fun `Policy should should prioritize password if multiple have OverridePasswordType`() {
         val policies = listOf(
-            createMockPolicy(
+            createMockPolicyView(
                 number = 1,
-                type = PolicyTypeJson.PASSWORD_GENERATOR,
-                isEnabled = true,
-                data = JsonObject(
-                    mapOf(
-                        "overridePasswordType" to JsonPrimitive("passphrase"),
-                    ),
-                ),
+                type = PolicyType.PASSWORD_GENERATOR,
+                enabled = true,
+                data = """
+                  {
+                    "overridePasswordType":"passphrase"
+                  }
+                """,
             ),
-            createMockPolicy(
+            createMockPolicyView(
                 number = 1,
-                type = PolicyTypeJson.PASSWORD_GENERATOR,
-                isEnabled = true,
-                data = JsonObject(
-                    mapOf(
-                        "overridePasswordType" to JsonPrimitive("password"),
-                    ),
-                ),
+                type = PolicyType.PASSWORD_GENERATOR,
+                enabled = true,
+                data = """
+                  {
+                    "overridePasswordType":"password"
+                  }
+                """,
             ),
         )
         every {
@@ -2369,6 +2373,45 @@ class GeneratorViewModelTest : BaseViewModelTest() {
         }
 
     @Test
+    fun `UpgradedToPremiumCardEligibilityReceive updates state with eligibility flag`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.stateFlow.test {
+            val initialState = awaitItem()
+            assertEquals(initialState.copy(isUpgradedToPremiumCardEligible = false), initialState)
+
+            mutableUpgradedToPremiumCardEligibleFlow.value = true
+            assertEquals(initialState.copy(isUpgradedToPremiumCardEligible = true), awaitItem())
+        }
+    }
+
+    @Test
+    fun `UpgradedToPremiumCardClick dismisses card and emits NavigateToUrl`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.eventFlow.test {
+            viewModel.trySendAction(GeneratorAction.UpgradedToPremiumCardClick)
+            assertEquals(
+                GeneratorEvent.NavigateToUrl(
+                    url = "https://bitwarden.com/help/password-manager-plans/",
+                ),
+                awaitItem(),
+            )
+        }
+        verify(exactly = 1) {
+            premiumStateManager.dismissUpgradedToPremiumCard()
+        }
+    }
+
+    @Test
+    fun `UpgradedToPremiumCardDismiss dismisses card without navigating`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.trySendAction(GeneratorAction.UpgradedToPremiumCardDismiss)
+
+        verify(exactly = 1) {
+            premiumStateManager.dismissUpgradedToPremiumCard()
+        }
+    }
+
+    @Test
     fun `WordSeparatorTextChange action with null separator falls back to empty string`() =
         runTest {
             val defaultNumWords = 3
@@ -2624,6 +2667,7 @@ class GeneratorViewModelTest : BaseViewModelTest() {
         policyManager = policyManager,
         reviewPromptManager = reviewPromptManager,
         firstTimeActionManager = firstTimeActionManager,
+        premiumStateManager = premiumStateManager,
     )
 
     private fun createViewModel(
@@ -2649,6 +2693,7 @@ private val DEFAULT_USER_STATE = UserState(
             environment = Environment.Us,
             avatarColorHex = "#aa00aa",
             isPremium = true,
+            isPremiumFromSelf = true,
             isLoggedIn = true,
             isVaultUnlocked = true,
             needsPasswordReset = false,

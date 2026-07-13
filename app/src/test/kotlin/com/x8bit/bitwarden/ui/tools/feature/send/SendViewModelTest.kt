@@ -6,7 +6,7 @@ import com.bitwarden.core.data.repository.model.DataState
 import com.bitwarden.core.data.repository.util.bufferedMutableSharedFlow
 import com.bitwarden.data.repository.model.Environment
 import com.bitwarden.data.repository.util.baseWebSendUrl
-import com.bitwarden.network.model.PolicyTypeJson
+import com.bitwarden.policies.PolicyType
 import com.bitwarden.ui.platform.base.BaseViewModelTest
 import com.bitwarden.ui.platform.components.snackbar.model.BitwardenSnackbarData
 import com.bitwarden.ui.platform.manager.snackbar.SnackbarRelayManager
@@ -16,6 +16,7 @@ import com.bitwarden.ui.util.asText
 import com.x8bit.bitwarden.data.auth.datasource.disk.model.OnboardingStatus
 import com.x8bit.bitwarden.data.auth.repository.AuthRepository
 import com.x8bit.bitwarden.data.auth.repository.model.UserState
+import com.x8bit.bitwarden.data.billing.manager.PremiumStateManager
 import com.x8bit.bitwarden.data.platform.manager.PolicyManager
 import com.x8bit.bitwarden.data.platform.manager.clipboard.BitwardenClipboardManager
 import com.x8bit.bitwarden.data.platform.manager.model.FirstTimeState
@@ -47,7 +48,9 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import kotlin.time.Duration.Companion.milliseconds
 
+@Suppress("LargeClass")
 class SendViewModelTest : BaseViewModelTest() {
 
     private val mutablePullToRefreshEnabledFlow = MutableStateFlow(false)
@@ -70,8 +73,8 @@ class SendViewModelTest : BaseViewModelTest() {
         every { sendDataStateFlow } returns mutableSendDataFlow
     }
     private val policyManager: PolicyManager = mockk {
-        every { getActivePolicies(type = PolicyTypeJson.DISABLE_SEND) } returns emptyList()
-        every { getActivePoliciesFlow(type = PolicyTypeJson.DISABLE_SEND) } returns emptyFlow()
+        every { getActivePolicies(type = PolicyType.DISABLE_SEND) } returns emptyList()
+        every { getActivePoliciesFlow(type = PolicyType.DISABLE_SEND) } returns emptyFlow()
     }
 
     private val networkConnectionManager: NetworkConnectionManager = mockk {
@@ -83,6 +86,12 @@ class SendViewModelTest : BaseViewModelTest() {
         every {
             getSnackbarDataFlow(relay = any(), relays = anyVararg())
         } returns mutableSnackbarDataFlow
+    }
+    private val mutableUpgradedToPremiumCardEligibleFlow = MutableStateFlow(false)
+    private val premiumStateManager: PremiumStateManager = mockk(relaxed = true) {
+        every {
+            isUpgradedToPremiumCardEligibleFlow
+        } returns mutableUpgradedToPremiumCardEligibleFlow
     }
 
     @BeforeEach
@@ -147,19 +156,40 @@ class SendViewModelTest : BaseViewModelTest() {
     }
 
     @Test
-    fun `AddSendSelected with file type and non Premium user should display dialog`() {
+    fun `AddSendSelected file without Premium and upgrade unavailable shows Error dialog`() {
+        every { premiumStateManager.isInAppUpgradeAvailable() } returns false
         val state = DEFAULT_STATE.copy(isPremiumUser = false, policyDisablesSend = false)
         val viewModel = createViewModel(state = state)
         viewModel.trySendAction(SendAction.AddSendSelected(sendType = SendItemType.FILE))
         assertEquals(
-            state.copy(
-                dialogState = SendState.DialogState.Error(
-                    title = BitwardenString.send.asText(),
-                    message = BitwardenString.send_file_premium_required.asText(),
-                ),
-            ),
+            state.copy(dialogState = SendState.DialogState.FileTypeRequiresPremium),
             viewModel.stateFlow.value,
         )
+    }
+
+    @Test
+    fun `AddSendSelected file without Premium with upgrade available shows premium dialog`() {
+        every { premiumStateManager.isInAppUpgradeAvailable() } returns true
+        val state = DEFAULT_STATE.copy(isPremiumUser = false, policyDisablesSend = false)
+        val viewModel = createViewModel(state = state)
+        viewModel.trySendAction(SendAction.AddSendSelected(sendType = SendItemType.FILE))
+        assertEquals(
+            state.copy(dialogState = SendState.DialogState.FileTypeRequiresPremium),
+            viewModel.stateFlow.value,
+        )
+    }
+
+    @Test
+    fun `UpgradeToPremiumClick clears dialog and emits NavigateToPlanModal`() = runTest {
+        val state = DEFAULT_STATE.copy(
+            dialogState = SendState.DialogState.FileTypeRequiresPremium,
+        )
+        val viewModel = createViewModel(state = state)
+        viewModel.eventFlow.test {
+            viewModel.trySendAction(SendAction.UpgradeToPremiumClick)
+            assertEquals(SendEvent.NavigateToPlanModal, awaitItem())
+        }
+        assertEquals(state.copy(dialogState = null), viewModel.stateFlow.value)
     }
 
     @Test
@@ -521,26 +551,58 @@ class SendViewModelTest : BaseViewModelTest() {
         assertEquals(initialState.copy(dialogState = null), viewModel.stateFlow.value)
     }
 
+    @Suppress("MaxLineLength")
     @Test
-    fun `VaultRepository SendData Error should update view state to Error`() = runTest {
-        val dialogState = SendState.DialogState.Loading(BitwardenString.syncing.asText())
-        val viewModel = createViewModel(state = DEFAULT_STATE.copy(dialogState = dialogState))
+    fun `VaultRepository SendData Error should update view state to Error when there is no data`() =
+        runTest {
+            val dialogState = SendState.DialogState.Loading(BitwardenString.syncing.asText())
+            val viewModel = createViewModel(state = DEFAULT_STATE.copy(dialogState = dialogState))
 
-        viewModel.eventFlow.test {
-            mutableSendDataFlow.value = DataState.Error(Throwable("Fail"))
+            viewModel.eventFlow.test {
+                mutableSendDataFlow.value = DataState.Error(Throwable("Fail"))
+            }
+
+            assertEquals(
+                DEFAULT_STATE.copy(
+                    viewState = SendState.ViewState.Error(
+                        message = BitwardenString.generic_error_message.asText(),
+                    ),
+                    dialogState = null,
+                    isRefreshing = false,
+                ),
+                viewModel.stateFlow.value,
+            )
         }
 
-        assertEquals(
-            DEFAULT_STATE.copy(
-                viewState = SendState.ViewState.Error(
-                    message = BitwardenString.generic_error_message.asText(),
+    @Suppress("MaxLineLength")
+    @Test
+    fun `VaultRepository SendData Error should update view state to data view state when there is data`() =
+        runTest {
+            val dialogState = SendState.DialogState.Loading(BitwardenString.syncing.asText())
+            val viewModel = createViewModel(state = DEFAULT_STATE.copy(dialogState = dialogState))
+            val viewState = mockk<SendState.ViewState.Content>()
+            val sendData = mockk<SendData> {
+                every {
+                    toViewState(Environment.Us.environmentUrlData.baseWebSendUrl)
+                } returns viewState
+            }
+
+            viewModel.eventFlow.test {
+                mutableSendDataFlow.value = DataState.Error(
+                    error = Throwable("Fail"),
+                    data = sendData,
+                )
+            }
+
+            assertEquals(
+                DEFAULT_STATE.copy(
+                    viewState = viewState,
+                    dialogState = null,
+                    isRefreshing = false,
                 ),
-                dialogState = null,
-                isRefreshing = false,
-            ),
-            viewModel.stateFlow.value,
-        )
-    }
+                viewModel.stateFlow.value,
+            )
+        }
 
     @Test
     fun `VaultRepository SendData Loaded should update view state`() = runTest {
@@ -627,7 +689,7 @@ class SendViewModelTest : BaseViewModelTest() {
         val viewModel = createViewModel()
 
         viewModel.trySendAction(SendAction.RefreshPull)
-        advanceTimeBy(300)
+        advanceTimeBy(300.milliseconds)
         verify(exactly = 1) {
             vaultRepo.sync(forced = false)
         }
@@ -642,7 +704,7 @@ class SendViewModelTest : BaseViewModelTest() {
         } returns false
 
         viewModel.trySendAction(SendAction.RefreshPull)
-        advanceTimeBy(300)
+        advanceTimeBy(300.milliseconds)
         assertEquals(
             DEFAULT_STATE.copy(
                 isRefreshing = false,
@@ -694,6 +756,45 @@ class SendViewModelTest : BaseViewModelTest() {
         }
     }
 
+    @Test
+    fun `Upgraded to Premium card eligibility flow updates state`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.stateFlow.test {
+            assertEquals(DEFAULT_STATE, awaitItem())
+            mutableUpgradedToPremiumCardEligibleFlow.value = true
+            assertEquals(
+                DEFAULT_STATE.copy(isUpgradedToPremiumCardEligible = true),
+                awaitItem(),
+            )
+        }
+    }
+
+    @Test
+    fun `UpgradedToPremiumCardClick dismisses card and emits NavigateToUrl`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.eventFlow.test {
+            viewModel.trySendAction(SendAction.UpgradedToPremiumCardClick)
+            assertEquals(
+                SendEvent.NavigateToUrl(
+                    url = "https://bitwarden.com/help/password-manager-plans/",
+                ),
+                awaitItem(),
+            )
+        }
+        verify(exactly = 1) {
+            premiumStateManager.dismissUpgradedToPremiumCard()
+        }
+    }
+
+    @Test
+    fun `UpgradedToPremiumCardDismiss dismisses card without navigating`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.trySendAction(SendAction.UpgradedToPremiumCardDismiss)
+        verify(exactly = 1) {
+            premiumStateManager.dismissUpgradedToPremiumCard()
+        }
+    }
+
     @Suppress("LongParameterList")
     private fun createViewModel(
         state: SendState? = null,
@@ -715,6 +816,7 @@ class SendViewModelTest : BaseViewModelTest() {
         policyManager = policyManager,
         networkConnectionManager = networkConnectionManager,
         snackbarRelayManager = snackbarRelayManager,
+        premiumStateManager = premiumStateManager,
     )
 }
 
@@ -734,6 +836,7 @@ private val DEFAULT_USER_ACCOUNT_STATE = UserState.Account(
     avatarColorHex = "#ff00ff",
     environment = Environment.Us,
     isPremium = false,
+    isPremiumFromSelf = false,
     isLoggedIn = true,
     isVaultUnlocked = true,
     needsPasswordReset = false,

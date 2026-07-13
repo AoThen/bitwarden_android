@@ -13,8 +13,12 @@ import com.x8bit.bitwarden.ui.auth.feature.accountsetup.navigateToSetupUnlockScr
 import com.x8bit.bitwarden.ui.auth.feature.accountsetup.setupAutoFillDestination
 import com.x8bit.bitwarden.ui.auth.feature.accountsetup.setupBrowserAutofillDestination
 import com.x8bit.bitwarden.ui.auth.feature.accountsetup.setupUnlockDestination
+import com.x8bit.bitwarden.ui.platform.feature.premium.plan.PlanMode
+import com.x8bit.bitwarden.ui.platform.feature.premium.plan.PlanRoute
 import com.x8bit.bitwarden.ui.platform.feature.premium.plan.navigateToPlanModal
 import com.x8bit.bitwarden.ui.platform.feature.premium.plan.planModalDestination
+import com.x8bit.bitwarden.ui.platform.feature.premium.upgraded.navigateToUpgradedToPremium
+import com.x8bit.bitwarden.ui.platform.feature.premium.upgraded.upgradedToPremiumDestination
 import com.x8bit.bitwarden.ui.platform.feature.search.SearchRoute
 import com.x8bit.bitwarden.ui.platform.feature.search.navigateToSearch
 import com.x8bit.bitwarden.ui.platform.feature.search.searchDestination
@@ -24,6 +28,8 @@ import com.x8bit.bitwarden.ui.platform.feature.settings.accountsecurity.deleteac
 import com.x8bit.bitwarden.ui.platform.feature.settings.accountsecurity.deleteaccountconfirmation.navigateToDeleteAccountConfirmation
 import com.x8bit.bitwarden.ui.platform.feature.settings.accountsecurity.loginapproval.loginApprovalDestination
 import com.x8bit.bitwarden.ui.platform.feature.settings.accountsecurity.loginapproval.navigateToLoginApproval
+import com.x8bit.bitwarden.ui.platform.feature.settings.accountsecurity.managedevices.manageDevicesDestination
+import com.x8bit.bitwarden.ui.platform.feature.settings.accountsecurity.managedevices.navigateToManageDevices
 import com.x8bit.bitwarden.ui.platform.feature.settings.accountsecurity.pendingrequests.navigateToPendingRequests
 import com.x8bit.bitwarden.ui.platform.feature.settings.accountsecurity.pendingrequests.pendingRequestsDestination
 import com.x8bit.bitwarden.ui.platform.feature.settings.autofill.privilegedapps.about.aboutPrivilegedAppsDestination
@@ -120,6 +126,7 @@ fun NavGraphBuilder.vaultUnlockedGraph(
             onNavigateToViewSend = { navController.navigateToViewSend(route = it) },
             onNavigateToDeleteAccount = { navController.navigateToDeleteAccount() },
             onNavigateToPendingRequests = { navController.navigateToPendingRequests() },
+            onNavigateToManageDevices = { navController.navigateToManageDevices() },
             onNavigateToPasswordHistory = {
                 navController.navigateToPasswordHistory(
                     passwordHistoryMode = GeneratorPasswordHistoryMode.Default,
@@ -145,6 +152,9 @@ fun NavGraphBuilder.vaultUnlockedGraph(
                 navController.navigateToAboutPrivilegedAppsScreen()
             },
             onNavigateToPlan = { navController.navigateToPlanModal() },
+            onNavigateToUpgradedToPremium = {
+                navController.navigateToUpgradedToPremium(planMode = PlanMode.Standard)
+            },
         )
         flightRecorderDestination(
             isPreAuth = false,
@@ -168,6 +178,10 @@ fun NavGraphBuilder.vaultUnlockedGraph(
         )
         loginApprovalDestination(onNavigateBack = { navController.popBackStack() })
         pendingRequestsDestination(
+            onNavigateBack = { navController.popBackStack() },
+            onNavigateToLoginApproval = { navController.navigateToLoginApproval(it) },
+        )
+        manageDevicesDestination(
             onNavigateBack = { navController.popBackStack() },
             onNavigateToLoginApproval = { navController.navigateToLoginApproval(it) },
         )
@@ -268,6 +282,7 @@ fun NavGraphBuilder.vaultUnlockedGraph(
         attachmentDestination(
             onNavigateBack = { navController.popBackStack() },
             onNavigateToPreviewAttachment = { navController.navigateToPreviewAttachment(it) },
+            onNavigateToPlan = { navController.navigateToPlanModal() },
         )
         setupUnlockDestination(
             onNavigateBack = {
@@ -289,6 +304,17 @@ fun NavGraphBuilder.vaultUnlockedGraph(
         )
         planModalDestination(
             onNavigateBack = { navController.popBackStack() },
+            onNavigateToUpgradedToPremium = {
+                navController.navigateToUpgradedToPremium(planMode = PlanMode.Modal)
+            },
+        )
+        upgradedToPremiumDestination(
+            onDismiss = { planMode ->
+                when (planMode) {
+                    PlanMode.Modal -> navController.popBackStack<PlanRoute.Modal>(inclusive = true)
+                    PlanMode.Standard -> navController.popBackStack()
+                }
+            },
         )
     }
 }

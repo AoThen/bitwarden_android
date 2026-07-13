@@ -11,6 +11,7 @@ import com.x8bit.bitwarden.data.auth.repository.model.AuthState
 import com.x8bit.bitwarden.data.auth.repository.model.BreachCountResult
 import com.x8bit.bitwarden.data.auth.repository.model.DeleteAccountResult
 import com.x8bit.bitwarden.data.auth.repository.model.EmailTokenResult
+import com.x8bit.bitwarden.data.auth.repository.model.GetDevicesResult
 import com.x8bit.bitwarden.data.auth.repository.model.KnownDeviceResult
 import com.x8bit.bitwarden.data.auth.repository.model.LeaveOrganizationResult
 import com.x8bit.bitwarden.data.auth.repository.model.LoginResult
@@ -280,7 +281,7 @@ interface AuthRepository :
         email: String,
         masterPassword: String,
         masterPasswordHint: String?,
-        emailVerificationToken: String? = null,
+        emailVerificationToken: String,
         shouldCheckDataBreaches: Boolean,
         isMasterPasswordStrong: Boolean,
     ): RegisterResult
@@ -356,6 +357,11 @@ interface AuthRepository :
      * Set the value of [cookieCallbackResultFlow].
      */
     fun setCookieCallbackResult(result: CookieCallbackResult)
+
+    /**
+     * Retrieves all devices registered to the current user.
+     */
+    suspend fun getDevices(): GetDevicesResult
 
     /**
      * Get a [Boolean] indicating whether this is a known device.

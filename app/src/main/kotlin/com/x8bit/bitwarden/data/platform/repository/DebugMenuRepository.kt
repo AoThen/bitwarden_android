@@ -44,6 +44,11 @@ interface DebugMenuRepository {
     fun resetCoachMarkTourStatuses()
 
     /**
+     * Resets the value for displaying the accessibility disclaimer.
+     */
+    fun resetAccessibilityDisclaimer()
+
+    /**
      * Manipulates the state to force showing the onboarding carousel.
      *
      * @param userStateUpdateTrigger A passable lambda to trigger a user state update.
@@ -59,4 +64,10 @@ interface DebugMenuRepository {
      * Resets the Premium upgrade banner dismiss status for the current user.
      */
     fun resetPremiumUpgradeBannerDismiss()
+
+    /**
+     * Forces the "Upgraded to Premium" action card to be displayed for the current user by
+     * marking the card pending and clearing any prior consumed state.
+     */
+    fun showUpgradedToPremiumCard()
 }

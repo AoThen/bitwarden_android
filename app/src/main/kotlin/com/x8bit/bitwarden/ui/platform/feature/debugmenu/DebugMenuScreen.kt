@@ -101,7 +101,15 @@ fun DebugMenuScreen(
                     viewModel.trySendAction(DebugMenuAction.RestartOnboardingCarousel)
                 },
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(height = 16.dp))
+            BitwardenFilledButton(
+                label = stringResource(id = BitwardenString.reset_accessibility_disclaimer),
+                onClick = { viewModel.trySendAction(DebugMenuAction.ResetAccessibilityDisclaimer) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .standardHorizontalMargin(),
+            )
+            Spacer(modifier = Modifier.height(height = 8.dp))
             BitwardenFilledButton(
                 label = stringResource(BitwardenString.reset_coach_mark_tour_status),
                 onClick = { viewModel.trySendAction(DebugMenuAction.ResetCoachMarkTourStatuses) },
@@ -156,6 +164,18 @@ fun DebugMenuScreen(
                 onClick = {
                     viewModel.trySendAction(
                         DebugMenuAction.ResetPremiumUpgradeBanner,
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .standardHorizontalMargin(),
+            )
+            Spacer(Modifier.height(height = 8.dp))
+            BitwardenFilledButton(
+                label = stringResource(BitwardenString.show_upgraded_to_premium_card),
+                onClick = {
+                    viewModel.trySendAction(
+                        DebugMenuAction.ShowUpgradedToPremiumCard,
                     )
                 },
                 modifier = Modifier

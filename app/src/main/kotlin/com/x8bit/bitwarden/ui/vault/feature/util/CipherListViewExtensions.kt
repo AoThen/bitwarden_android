@@ -73,6 +73,50 @@ fun CipherListView.toOverflowActions(
                         this.type is CipherListViewType.SecureNote &&
                             this.copyableFields.contains(CopyableCipherFields.SECURE_NOTES)
                     },
+                ListingItemOverflowAction.VaultAction
+                    .CopyAccountNumberClick(
+                        cipherId = cipherId,
+                        requiresPasswordReprompt = hasMasterPassword,
+                    )
+                    .takeIf {
+                        this.type is CipherListViewType.BankAccount &&
+                            this.copyableFields.contains(
+                                CopyableCipherFields.BANK_ACCOUNT_ACCOUNT_NUMBER,
+                            )
+                    },
+                ListingItemOverflowAction.VaultAction
+                    .CopyRoutingNumberClick(
+                        cipherId = cipherId,
+                        requiresPasswordReprompt = hasMasterPassword,
+                    )
+                    .takeIf {
+                        this.type is CipherListViewType.BankAccount &&
+                            this.copyableFields.contains(
+                                CopyableCipherFields.BANK_ACCOUNT_ROUTING_NUMBER,
+                            )
+                    },
+                ListingItemOverflowAction.VaultAction
+                    .CopyLicenseNumberClick(
+                        cipherId = cipherId,
+                        requiresPasswordReprompt = hasMasterPassword,
+                    )
+                    .takeIf {
+                        this.type is CipherListViewType.DriversLicense &&
+                            this.copyableFields.contains(
+                                CopyableCipherFields.DRIVERS_LICENSE_LICENSE_NUMBER,
+                            )
+                    },
+                ListingItemOverflowAction.VaultAction
+                    .CopyPassportNumberClick(
+                        cipherId = cipherId,
+                        requiresPasswordReprompt = hasMasterPassword,
+                    )
+                    .takeIf {
+                        this.type is CipherListViewType.Passport &&
+                            this.copyableFields.contains(
+                                CopyableCipherFields.PASSPORT_PASSPORT_NUMBER,
+                            )
+                    },
                 ListingItemOverflowAction.VaultAction.ViewClick(
                     cipherId = cipherId,
                     cipherType = this.type.toSdkCipherType(),

@@ -9,25 +9,31 @@ class EnvironmentUrlDataJsonExtensionsTest {
 
     @Test
     fun `duoAuthTabData should return the correct AuthTabData for all environments`() {
-        // TODO: PM-26577 Update these to use a "HttpsScheme"
         assertEquals(
-            AuthTabData.CustomScheme(
-                callbackUrl = "bitwarden://duo-callback",
-                callbackScheme = "bitwarden",
+            AuthTabData.HttpsScheme(
+                host = "bitwarden.com",
+                path = "duo-callback",
             ),
             EnvironmentUrlDataJson.DEFAULT_US.duoAuthTabData,
         )
         assertEquals(
-            AuthTabData.CustomScheme(
-                callbackUrl = "bitwarden://duo-callback",
-                callbackScheme = "bitwarden",
+            AuthTabData.HttpsScheme(
+                host = "bitwarden.eu",
+                path = "duo-callback",
             ),
             EnvironmentUrlDataJson.DEFAULT_EU.duoAuthTabData,
         )
         assertEquals(
-            AuthTabData.CustomScheme(
-                callbackUrl = "bitwarden://duo-callback",
-                callbackScheme = "bitwarden",
+            AuthTabData.HttpsScheme(
+                host = "bitwarden-gov.com",
+                path = "duo-callback",
+            ),
+            EnvironmentUrlDataJson.DEFAULT_FED_RAMP.duoAuthTabData,
+        )
+        assertEquals(
+            AuthTabData.HttpsScheme(
+                host = "bitwarden.pw",
+                path = "duo-callback",
             ),
             DEFAULT_INTERNAL_ENVIRONMENT_URL_DATA.duoAuthTabData,
         )
@@ -42,25 +48,31 @@ class EnvironmentUrlDataJsonExtensionsTest {
 
     @Test
     fun `webAuthnAuthTabData should return the correct AuthTabData for all environments`() {
-        // TODO: PM-26577 Update these to use a "HttpsScheme"
         assertEquals(
-            AuthTabData.CustomScheme(
-                callbackUrl = "bitwarden://webauthn-callback",
-                callbackScheme = "bitwarden",
+            AuthTabData.HttpsScheme(
+                host = "bitwarden.com",
+                path = "webauthn-callback",
             ),
             EnvironmentUrlDataJson.DEFAULT_US.webAuthnAuthTabData,
         )
         assertEquals(
-            AuthTabData.CustomScheme(
-                callbackUrl = "bitwarden://webauthn-callback",
-                callbackScheme = "bitwarden",
+            AuthTabData.HttpsScheme(
+                host = "bitwarden.eu",
+                path = "webauthn-callback",
             ),
             EnvironmentUrlDataJson.DEFAULT_EU.webAuthnAuthTabData,
         )
         assertEquals(
-            AuthTabData.CustomScheme(
-                callbackUrl = "bitwarden://webauthn-callback",
-                callbackScheme = "bitwarden",
+            AuthTabData.HttpsScheme(
+                host = "bitwarden-gov.com",
+                path = "webauthn-callback",
+            ),
+            EnvironmentUrlDataJson.DEFAULT_FED_RAMP.webAuthnAuthTabData,
+        )
+        assertEquals(
+            AuthTabData.HttpsScheme(
+                host = "bitwarden.pw",
+                path = "webauthn-callback",
             ),
             DEFAULT_INTERNAL_ENVIRONMENT_URL_DATA.webAuthnAuthTabData,
         )
@@ -75,25 +87,31 @@ class EnvironmentUrlDataJsonExtensionsTest {
 
     @Test
     fun `ssoAuthTabData should return the correct AuthTabData for all environments`() {
-        // TODO: PM-26577 Update these to use a "HttpsScheme"
         assertEquals(
-            AuthTabData.CustomScheme(
-                callbackUrl = "bitwarden://sso-callback",
-                callbackScheme = "bitwarden",
+            AuthTabData.HttpsScheme(
+                host = "bitwarden.com",
+                path = "sso-callback",
             ),
             EnvironmentUrlDataJson.DEFAULT_US.ssoAuthTabData,
         )
         assertEquals(
-            AuthTabData.CustomScheme(
-                callbackUrl = "bitwarden://sso-callback",
-                callbackScheme = "bitwarden",
+            AuthTabData.HttpsScheme(
+                host = "bitwarden.eu",
+                path = "sso-callback",
             ),
             EnvironmentUrlDataJson.DEFAULT_EU.ssoAuthTabData,
         )
         assertEquals(
-            AuthTabData.CustomScheme(
-                callbackUrl = "bitwarden://sso-callback",
-                callbackScheme = "bitwarden",
+            AuthTabData.HttpsScheme(
+                host = "bitwarden-gov.com",
+                path = "sso-callback",
+            ),
+            EnvironmentUrlDataJson.DEFAULT_FED_RAMP.ssoAuthTabData,
+        )
+        assertEquals(
+            AuthTabData.HttpsScheme(
+                host = "bitwarden.pw",
+                path = "sso-callback",
             ),
             DEFAULT_INTERNAL_ENVIRONMENT_URL_DATA.ssoAuthTabData,
         )

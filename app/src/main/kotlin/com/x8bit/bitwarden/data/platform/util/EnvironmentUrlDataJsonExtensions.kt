@@ -23,23 +23,30 @@ private fun EnvironmentUrlDataJson.authTabData(
     kind: String,
 ): AuthTabData = when (this.environmentRegion) {
     EnvironmentRegion.UNITED_STATES -> {
-        // TODO: PM-26577 Update this to use a "HttpsScheme"
-        AuthTabData.CustomScheme(
-            callbackUrl = "bitwarden://$kind-callback",
+        AuthTabData.HttpsScheme(
+            host = "bitwarden.com",
+            path = "$kind-callback",
         )
     }
 
     EnvironmentRegion.EUROPEAN_UNION -> {
-        // TODO: PM-26577 Update this to use a "HttpsScheme"
-        AuthTabData.CustomScheme(
-            callbackUrl = "bitwarden://$kind-callback",
+        AuthTabData.HttpsScheme(
+            host = "bitwarden.eu",
+            path = "$kind-callback",
         )
     }
 
     EnvironmentRegion.INTERNAL -> {
-        // TODO: PM-26577 Update this to use a "HttpsScheme"
-        AuthTabData.CustomScheme(
-            callbackUrl = "bitwarden://$kind-callback",
+        AuthTabData.HttpsScheme(
+            host = "bitwarden.pw",
+            path = "$kind-callback",
+        )
+    }
+
+    EnvironmentRegion.FED_RAMP -> {
+        AuthTabData.HttpsScheme(
+            host = "bitwarden-gov.com",
+            path = "$kind-callback",
         )
     }
 

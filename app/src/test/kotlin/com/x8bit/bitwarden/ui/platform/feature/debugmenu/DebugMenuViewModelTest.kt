@@ -39,6 +39,7 @@ class DebugMenuViewModelTest : BaseViewModelTest() {
         coEvery { resetFeatureFlagOverrides() } just runs
         every { updateFeatureFlag<Boolean>(any(), any()) } just runs
         every { resetOnboardingStatusForCurrentUser() } just runs
+        every { resetAccessibilityDisclaimer() } just runs
         every {
             modifyStateToShowOnboardingCarousel(userStateUpdateTrigger = any())
         } answers {
@@ -135,6 +136,15 @@ class DebugMenuViewModelTest : BaseViewModelTest() {
     }
 
     @Test
+    fun `ResetAccessibilityDisclaimer should call repository to reset values`() {
+        val viewModel = createViewModel()
+        viewModel.trySendAction(DebugMenuAction.ResetAccessibilityDisclaimer)
+        verify(exactly = 1) {
+            mockDebugMenuRepository.resetAccessibilityDisclaimer()
+        }
+    }
+
+    @Test
     fun `handleResetCoachMarkTourStatuses should call repository to reset values`() {
         val viewModel = createViewModel()
         viewModel.trySendAction(DebugMenuAction.ResetCoachMarkTourStatuses)
@@ -159,6 +169,15 @@ class DebugMenuViewModelTest : BaseViewModelTest() {
         viewModel.trySendAction(DebugMenuAction.ResetPremiumUpgradeBanner)
         verify(exactly = 1) {
             mockDebugMenuRepository.resetPremiumUpgradeBannerDismiss()
+        }
+    }
+
+    @Test
+    fun `ShowUpgradedToPremiumCard should call showUpgradedToPremiumCard on DebugMenuRepository`() {
+        val viewModel = createViewModel()
+        viewModel.trySendAction(DebugMenuAction.ShowUpgradedToPremiumCard)
+        verify(exactly = 1) {
+            mockDebugMenuRepository.showUpgradedToPremiumCard()
         }
     }
 

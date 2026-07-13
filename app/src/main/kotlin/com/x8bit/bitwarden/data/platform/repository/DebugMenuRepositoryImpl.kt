@@ -64,6 +64,10 @@ class DebugMenuRepositoryImpl(
         settingsDiskSource.storeShouldShowAddLoginCoachMark(shouldShow = null)
     }
 
+    override fun resetAccessibilityDisclaimer() {
+        settingsDiskSource.hasShownAccessibilityDisclaimer = null
+    }
+
     override fun modifyStateToShowOnboardingCarousel(
         userStateUpdateTrigger: () -> Unit,
     ) {
@@ -80,6 +84,18 @@ class DebugMenuRepositoryImpl(
         settingsDiskSource.storePremiumUpgradeBannerDismissed(
             userId = currentUserId,
             isDismissed = null,
+        )
+    }
+
+    override fun showUpgradedToPremiumCard() {
+        val currentUserId = authDiskSource.userState?.activeUserId ?: return
+        settingsDiskSource.storeUpgradedToPremiumCardConsumed(
+            userId = currentUserId,
+            isConsumed = false,
+        )
+        settingsDiskSource.storeUpgradedToPremiumCardPending(
+            userId = currentUserId,
+            isPending = true,
         )
     }
 }

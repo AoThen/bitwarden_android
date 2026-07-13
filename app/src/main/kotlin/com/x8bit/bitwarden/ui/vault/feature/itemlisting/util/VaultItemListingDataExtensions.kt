@@ -78,6 +78,18 @@ fun CipherListView.determineListingPredicate(
             type is CipherListViewType.SshKey && isActive
         }
 
+        is VaultItemListingState.ItemListingType.Vault.BankAccount -> {
+            type is CipherListViewType.BankAccount && isActive
+        }
+
+        is VaultItemListingState.ItemListingType.Vault.License -> {
+            type is CipherListViewType.DriversLicense && isActive
+        }
+
+        is VaultItemListingState.ItemListingType.Vault.Passport -> {
+            type is CipherListViewType.Passport && isActive
+        }
+
         is VaultItemListingState.ItemListingType.Vault.Trash -> {
             deletedDate != null
         }
@@ -240,6 +252,18 @@ fun VaultData.toViewState(
                         BitwardenString.no_ssh_keys
                     }
 
+                    VaultItemListingState.ItemListingType.Vault.BankAccount -> {
+                        BitwardenString.no_bank_accounts
+                    }
+
+                    VaultItemListingState.ItemListingType.Vault.License -> {
+                        BitwardenString.no_licenses
+                    }
+
+                    VaultItemListingState.ItemListingType.Vault.Passport -> {
+                        BitwardenString.no_passports
+                    }
+
                     VaultItemListingState.ItemListingType.Vault.Archive -> {
                         BitwardenString.no_archives_message
                     }
@@ -268,6 +292,9 @@ fun VaultData.toViewState(
                         VaultItemListingState.ItemListingType.Vault.Login,
                         VaultItemListingState.ItemListingType.Vault.SecureNote,
                         VaultItemListingState.ItemListingType.Vault.SshKey,
+                        VaultItemListingState.ItemListingType.Vault.BankAccount,
+                        VaultItemListingState.ItemListingType.Vault.License,
+                        VaultItemListingState.ItemListingType.Vault.Passport,
                             -> null
 
                         VaultItemListingState.ItemListingType.Vault.Archive -> {
@@ -282,26 +309,38 @@ fun VaultData.toViewState(
                 ?: run {
                     when (itemListingType) {
                         VaultItemListingState.ItemListingType.Vault.Card -> {
-                            BitwardenString.new_card
+                            BitwardenString.add_card
                         }
 
                         VaultItemListingState.ItemListingType.Vault.Identity -> {
-                            BitwardenString.new_identity
+                            BitwardenString.add_identity
                         }
 
                         VaultItemListingState.ItemListingType.Vault.Login -> {
-                            BitwardenString.new_login
+                            BitwardenString.add_login
                         }
 
                         VaultItemListingState.ItemListingType.Vault.SecureNote -> {
-                            BitwardenString.new_note
+                            BitwardenString.add_note
                         }
 
                         VaultItemListingState.ItemListingType.Vault.SshKey -> {
-                            BitwardenString.new_ssh_key
+                            BitwardenString.add_ssh_key
                         }
 
-                        else -> BitwardenString.new_item
+                        VaultItemListingState.ItemListingType.Vault.BankAccount -> {
+                            BitwardenString.add_bank_account
+                        }
+
+                        VaultItemListingState.ItemListingType.Vault.License -> {
+                            BitwardenString.add_license
+                        }
+
+                        VaultItemListingState.ItemListingType.Vault.Passport -> {
+                            BitwardenString.add_passport
+                        }
+
+                        else -> BitwardenString.add_item
                     }
                         .asText()
                 },
@@ -317,6 +356,9 @@ fun VaultData.toViewState(
                         VaultItemListingState.ItemListingType.Vault.Login,
                         VaultItemListingState.ItemListingType.Vault.SecureNote,
                         VaultItemListingState.ItemListingType.Vault.SshKey,
+                        VaultItemListingState.ItemListingType.Vault.BankAccount,
+                        VaultItemListingState.ItemListingType.Vault.License,
+                        VaultItemListingState.ItemListingType.Vault.Passport,
                             -> null
 
                         VaultItemListingState.ItemListingType.Vault.Archive -> {
@@ -397,6 +439,9 @@ fun VaultItemListingState.ItemListingType.updateWithAdditionalDataIfNecessary(
         is VaultItemListingState.ItemListingType.Send.SendFile -> this
         is VaultItemListingState.ItemListingType.Send.SendText -> this
         is VaultItemListingState.ItemListingType.Vault.SshKey -> this
+        is VaultItemListingState.ItemListingType.Vault.BankAccount -> this
+        is VaultItemListingState.ItemListingType.Vault.License -> this
+        is VaultItemListingState.ItemListingType.Vault.Passport -> this
         is VaultItemListingState.ItemListingType.Vault.Archive -> this
     }
 
@@ -526,6 +571,8 @@ private fun CipherListView.toIconTestTag(): String =
         CipherListViewType.Identity -> "IdentityCipherIcon"
         CipherListViewType.SshKey -> "SshKeyCipherIcon"
         CipherListViewType.BankAccount -> "BankAccountCipherIcon"
+        CipherListViewType.DriversLicense -> "LicenseCipherIcon"
+        CipherListViewType.Passport -> "PassportCipherIcon"
     }
 
 private fun CipherListView.toIconData(
@@ -588,7 +635,9 @@ private val CipherListViewType.iconRes: Int
         is CipherListViewType.Card -> BitwardenDrawable.ic_payment_card
         CipherListViewType.Identity -> BitwardenDrawable.ic_id_card
         CipherListViewType.SshKey -> BitwardenDrawable.ic_ssh_key
-        CipherListViewType.BankAccount -> TODO("PM-32810: Add Bank Account Type")
+        CipherListViewType.BankAccount -> BitwardenDrawable.ic_payment_card
+        CipherListViewType.DriversLicense -> BitwardenDrawable.ic_note
+        CipherListViewType.Passport -> BitwardenDrawable.ic_passport
     }
 
 private fun List<CipherListView>.applyFilters(

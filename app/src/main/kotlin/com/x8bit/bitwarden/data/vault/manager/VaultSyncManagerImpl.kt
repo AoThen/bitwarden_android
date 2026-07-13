@@ -7,6 +7,7 @@ import com.bitwarden.core.data.repository.model.DataState
 import com.bitwarden.core.data.repository.util.combineDataStates
 import com.bitwarden.core.data.repository.util.map
 import com.bitwarden.core.data.repository.util.updateToPendingOrLoading
+import com.bitwarden.network.model.OrganizationStatusType
 import com.bitwarden.network.model.SyncResponseJson
 import com.bitwarden.network.service.SyncService
 import com.bitwarden.network.util.isNoConnectionError
@@ -14,8 +15,10 @@ import com.bitwarden.vault.DecryptCipherListResult
 import com.bitwarden.vault.FolderView
 import com.x8bit.bitwarden.data.auth.datasource.disk.AuthDiskSource
 import com.x8bit.bitwarden.data.auth.manager.UserLogoutManager
+import com.x8bit.bitwarden.data.autofill.manager.FillAssistManager
 import com.x8bit.bitwarden.data.auth.manager.UserStateManager
 import com.x8bit.bitwarden.data.auth.repository.model.LogoutReason
+import com.x8bit.bitwarden.data.auth.repository.util.toAccountCryptographicState
 import com.x8bit.bitwarden.data.auth.repository.util.toUpdatedUserStateJson
 import com.x8bit.bitwarden.data.auth.repository.util.userSwitchingChangesFlow
 import com.x8bit.bitwarden.data.platform.datasource.disk.SettingsDiskSource
@@ -78,6 +81,7 @@ class VaultSyncManagerImpl(
     private val authDiskSource: AuthDiskSource,
     private val vaultDiskSource: VaultDiskSource,
     private val vaultSdkSource: VaultSdkSource,
+    private val fillAssistManager: FillAssistManager,
     private val userLogoutManager: UserLogoutManager,
     private val userStateManager: UserStateManager,
     private val vaultLockManager: VaultLockManager,
@@ -340,6 +344,7 @@ class VaultSyncManagerImpl(
                         lastSyncTime = clock.instant(),
                     )
                     vaultDiskSource.replaceVaultData(userId = userId, vault = syncResponse)
+                    fillAssistManager.syncIfNecessary()
                     val itemsAvailable = syncResponse.ciphers?.isNotEmpty() == true
                     SyncVaultDataResult.Success(itemsAvailable = itemsAvailable)
                 }
@@ -376,9 +381,14 @@ class VaultSyncManagerImpl(
         val profile = syncResponse.profile
         val userId = profile.id
         authDiskSource.apply {
-            storeUserKey(userId = userId, userKey = profile.key)
-            storePrivateKey(userId = userId, privateKey = profile.privateKey)
-            storeAccountKeys(userId = userId, accountKeys = profile.accountKeys)
+            storeAccountCryptographicState(
+                userId = userId,
+                accountCryptographicState = profile.privateKeyOrNull()?.let {
+                    profile.accountKeys.toAccountCryptographicState(
+                        privateKey = it,
+                    )
+                },
+            )
             storeOrganizationKeys(
                 userId = userId,
                 organizationKeys = profile.organizations
@@ -469,6 +479,9 @@ class VaultSyncManagerImpl(
                                 data = collections.sortAlphabeticallyByTypeAndOrganization(
                                     userOrganizations = authDiskSource
                                         .getOrganizations(userId = userId)
+                                        ?.filter { org ->
+                                            org.status == OrganizationStatusType.CONFIRMED
+                                        }
                                         .orEmpty(),
                                 ),
                             )
@@ -535,6 +548,13 @@ class VaultSyncManagerImpl(
             .takeUnless { settingsDiskSource.getLastSyncTime(userId = userId) == null }
             ?: DataState.Loading
 }
+
+/**
+ * Convenience function to extract the private key from the [SyncResponseJson.Profile] response.
+ */
+private fun SyncResponseJson.Profile.privateKeyOrNull(): String? =
+    this.accountKeys?.publicKeyEncryptionKeyPair?.wrappedPrivateKey
+        ?: this.privateKey
 
 private fun <T> Throwable.toNetworkOrErrorState(
     data: T?,

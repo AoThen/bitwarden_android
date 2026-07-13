@@ -372,7 +372,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
         val activeAccountSummary = ACTIVE_ACCOUNT_SUMMARY.copy(isLoggedIn = false)
         mutableStateFlow.update {
             it.copy(
-                accountSummaries = listOf(activeAccountSummary),
+                accountSummaries = persistentListOf(activeAccountSummary),
                 autofillSelectionData = AUTOFILL_SELECTION_DATA,
             )
         }
@@ -391,7 +391,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
         val activeAccountSummary = ACTIVE_ACCOUNT_SUMMARY.copy(isLoggedIn = false)
         mutableStateFlow.update {
             it.copy(
-                accountSummaries = listOf(activeAccountSummary),
+                accountSummaries = persistentListOf(activeAccountSummary),
                 autofillSelectionData = AUTOFILL_SELECTION_DATA,
             )
         }
@@ -500,7 +500,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
     @Test
     fun `floating action button click should send AddItemClick action`() {
         composeTestRule
-            .onNodeWithContentDescription("Add Item")
+            .onNodeWithContentDescription("Add item")
             .performClick()
         verify { viewModel.trySendAction(VaultItemListingsAction.AddVaultItemClick) }
     }
@@ -756,7 +756,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
         mutableStateFlow.update { DEFAULT_STATE }
 
         composeTestRule
-            .onNodeWithContentDescription("Add Item")
+            .onNodeWithContentDescription("Add item")
             .assertIsDisplayed()
 
         mutableStateFlow.update {
@@ -777,7 +777,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
 
         composeTestRule
             .onNodeWithContentDescription("Add item")
-            .assertDoesNotExist()
+            .assertIsDisplayed()
 
         mutableStateFlow.update {
             it.copy(
@@ -2579,9 +2579,45 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
         }
 
         composeTestRule
-            .onNodeWithText(text = "Archive unavailable")
+            .onNodeWithText(text = "Premium subscription required")
             .assert(hasAnyAncestor(isDialog()))
             .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText(text = "Upgrade to Premium")
+            .assert(hasAnyAncestor(isDialog()))
+            .performClick()
+
+        verify(exactly = 1) {
+            viewModel.trySendAction(VaultItemListingsAction.UpgradeToPremiumClick)
+        }
+    }
+
+    @Test
+    fun `FileTypeRequiresPremium dialog should display based on state`() {
+        composeTestRule.assertNoDialogExists()
+        mutableStateFlow.update {
+            it.copy(dialogState = VaultItemListingState.DialogState.FileTypeRequiresPremium)
+        }
+
+        composeTestRule
+            .onNodeWithText(text = "Premium subscription required")
+            .assert(hasAnyAncestor(isDialog()))
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText(
+                text = "Free accounts are restricted to sharing text only. " +
+                    "A Premium membership is required to use files with Send.",
+            )
+            .assert(hasAnyAncestor(isDialog()))
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `FileTypeRequiresPremium dialog Upgrade click should send UpgradeToPremiumClick`() {
+        mutableStateFlow.update {
+            it.copy(dialogState = VaultItemListingState.DialogState.FileTypeRequiresPremium)
+        }
+
         composeTestRule
             .onNodeWithText(text = "Upgrade to Premium")
             .assert(hasAnyAncestor(isDialog()))
@@ -2615,7 +2651,7 @@ private val LOCKED_ACCOUNT_SUMMARY = AccountSummary(
     isVaultUnlocked = false,
 )
 
-private val ACCOUNT_SUMMARIES = listOf(
+private val ACCOUNT_SUMMARIES = persistentListOf(
     ACTIVE_ACCOUNT_SUMMARY,
     LOCKED_ACCOUNT_SUMMARY,
 )

@@ -21,6 +21,7 @@ private const val APP_LANGUAGE_KEY = "appLocale"
 private const val APP_THEME_KEY = "theme"
 private const val PULL_TO_REFRESH_KEY = "syncOnRefresh"
 private const val INLINE_AUTOFILL_ENABLED_KEY = "inlineAutofillEnabled"
+private const val FILL_ASSIST_ENABLED_KEY = "fillAssistEnabled"
 private const val BLOCKED_AUTOFILL_URIS_KEY = "autofillBlacklistedUris"
 private const val VAULT_LAST_SYNC_TIME = "vaultLastSyncTime"
 private const val VAULT_TIMEOUT_ACTION_KEY = "vaultTimeoutAction"
@@ -35,6 +36,7 @@ private const val ACCOUNT_BIOMETRIC_INTEGRITY_VALID_KEY = "accountBiometricInteg
 private const val CRASH_LOGGING_ENABLED_KEY = "crashLoggingEnabled"
 private const val CLEAR_CLIPBOARD_INTERVAL_KEY = "clearClipboard"
 private const val INITIAL_AUTOFILL_DIALOG_SHOWN = "addSitePromptShown"
+private const val HAS_SHOWN_ACCESSIBILITY_DISCLAIMER_KEY = "hasShownAccessibilityDisclaimer"
 private const val HAS_USER_LOGGED_IN_OR_CREATED_AN_ACCOUNT_KEY = "hasUserLoggedInOrCreatedAccount"
 private const val SHOW_AUTOFILL_SETTING_BADGE = "showAutofillSettingBadge"
 private const val SHOW_BROWSER_AUTOFILL_SETTING_BADGE = "showBrowserAutofillSettingBadge"
@@ -53,11 +55,17 @@ private const val INTRODUCING_ARCHIVE_ACTION_CARD_DISMISSED =
     "introducingArchiveActionCardDismissed"
 private const val PREMIUM_UPGRADE_BANNER_DISMISSED =
     "premiumUpgradeBannerDismissed"
+private const val UPGRADED_TO_PREMIUM_CARD_CONSUMED =
+    "upgradedToPremiumCardConsumed"
+private const val UPGRADED_TO_PREMIUM_CARD_PENDING =
+    "upgradedToPremiumCardPending"
+private const val PREMIUM_UPGRADE_PENDING =
+    "premiumUpgradePending"
 
 /**
  * Primary implementation of [SettingsDiskSource].
  */
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LargeClass")
 class SettingsDiskSourceImpl(
     private val sharedPreferences: SharedPreferences,
     private val json: Json,
@@ -97,6 +105,15 @@ class SettingsDiskSourceImpl(
     private val mutablePremiumUpgradeBannerDismissedFlowMap =
         mutableMapOf<String, MutableSharedFlow<Boolean?>>()
 
+    private val mutableUpgradedToPremiumCardConsumedFlowMap =
+        mutableMapOf<String, MutableSharedFlow<Boolean?>>()
+
+    private val mutableUpgradedToPremiumCardPendingFlowMap =
+        mutableMapOf<String, MutableSharedFlow<Boolean?>>()
+
+    private val mutablePremiumUpgradePendingFlowMap =
+        mutableMapOf<String, MutableSharedFlow<Boolean?>>()
+
     private val mutableIsIconLoadingDisabledFlow = bufferedMutableSharedFlow<Boolean?>()
 
     private val mutableIsCrashLoggingEnabledFlow = bufferedMutableSharedFlow<Boolean?>()
@@ -112,6 +129,8 @@ class SettingsDiskSourceImpl(
     private val mutableVaultRegisteredForExportFlow = bufferedMutableSharedFlow<Boolean?>()
 
     private val mutableIsDynamicColorsEnabledFlow = bufferedMutableSharedFlow<Boolean?>()
+
+    private val mutableHasShownAccessibilityDisclaimerFlow = bufferedMutableSharedFlow<Boolean?>()
 
     init {
         migrateScreenCaptureSetting()
@@ -151,6 +170,17 @@ class SettingsDiskSourceImpl(
                 value = value,
             )
         }
+
+    override var hasShownAccessibilityDisclaimer: Boolean?
+        set(value) {
+            putBoolean(HAS_SHOWN_ACCESSIBILITY_DISCLAIMER_KEY, value)
+            mutableHasShownAccessibilityDisclaimerFlow.tryEmit(value)
+        }
+        get() = getBoolean(HAS_SHOWN_ACCESSIBILITY_DISCLAIMER_KEY)
+
+    override val hasShownAccessibilityDisclaimerFlow: Flow<Boolean?>
+        get() = mutableHasShownAccessibilityDisclaimerFlow
+            .onSubscription { emit(hasShownAccessibilityDisclaimer) }
 
     override var systemBiometricIntegritySource: String?
         get() = getString(key = SYSTEM_BIOMETRIC_INTEGRITY_SOURCE_KEY)
@@ -237,6 +267,7 @@ class SettingsDiskSourceImpl(
         storeAutofillSavePromptDisabled(userId = userId, isAutofillSavePromptDisabled = null)
         storePullToRefreshEnabled(userId = userId, isPullToRefreshEnabled = null)
         storeInlineAutofillEnabled(userId = userId, isInlineAutofillEnabled = null)
+        storeFillAssistEnabled(userId = userId, isFillAssistEnabled = null)
         storeBlockedAutofillUris(userId = userId, blockedAutofillUris = null)
         storeLastSyncTime(userId = userId, lastSyncTime = null)
         storeClearClipboardFrequencySeconds(userId = userId, frequency = null)
@@ -252,6 +283,10 @@ class SettingsDiskSourceImpl(
         // - should show generator coach mark
         // - should show introducing archive action card dismissed
         // - Premium upgrade banner dismissed
+        // - Upgraded to Premium action card consumed
+        // - Upgraded to Premium action card pending
+        // - Premium upgrade pending
+        // - Has shown accessibility disclaimer dialog
     }
 
     override fun getIntroducingArchiveActionCardDismissed(userId: String): Boolean? =
@@ -293,6 +328,66 @@ class SettingsDiskSourceImpl(
     override fun getPremiumUpgradeBannerDismissedFlow(userId: String): Flow<Boolean?> =
         getMutablePremiumUpgradeBannerDismissedFlow(userId = userId)
             .onSubscription { emit(getPremiumUpgradeBannerDismissed(userId = userId)) }
+
+    override fun getUpgradedToPremiumCardConsumed(userId: String): Boolean? =
+        getBoolean(
+            key = UPGRADED_TO_PREMIUM_CARD_CONSUMED.appendIdentifier(identifier = userId),
+        )
+
+    override fun storeUpgradedToPremiumCardConsumed(
+        userId: String,
+        isConsumed: Boolean?,
+    ) {
+        putBoolean(
+            key = UPGRADED_TO_PREMIUM_CARD_CONSUMED.appendIdentifier(identifier = userId),
+            value = isConsumed,
+        )
+        getMutableUpgradedToPremiumCardConsumedFlow(userId = userId).tryEmit(isConsumed)
+    }
+
+    override fun getUpgradedToPremiumCardConsumedFlow(userId: String): Flow<Boolean?> =
+        getMutableUpgradedToPremiumCardConsumedFlow(userId = userId)
+            .onSubscription { emit(getUpgradedToPremiumCardConsumed(userId = userId)) }
+
+    override fun getUpgradedToPremiumCardPending(userId: String): Boolean? =
+        getBoolean(
+            key = UPGRADED_TO_PREMIUM_CARD_PENDING.appendIdentifier(identifier = userId),
+        )
+
+    override fun storeUpgradedToPremiumCardPending(
+        userId: String,
+        isPending: Boolean?,
+    ) {
+        putBoolean(
+            key = UPGRADED_TO_PREMIUM_CARD_PENDING.appendIdentifier(identifier = userId),
+            value = isPending,
+        )
+        getMutableUpgradedToPremiumCardPendingFlow(userId = userId).tryEmit(isPending)
+    }
+
+    override fun getUpgradedToPremiumCardPendingFlow(userId: String): Flow<Boolean?> =
+        getMutableUpgradedToPremiumCardPendingFlow(userId = userId)
+            .onSubscription { emit(getUpgradedToPremiumCardPending(userId = userId)) }
+
+    override fun getPremiumUpgradePending(userId: String): Boolean? =
+        getBoolean(
+            key = PREMIUM_UPGRADE_PENDING.appendIdentifier(identifier = userId),
+        )
+
+    override fun storePremiumUpgradePending(
+        userId: String,
+        isPending: Boolean?,
+    ) {
+        putBoolean(
+            key = PREMIUM_UPGRADE_PENDING.appendIdentifier(identifier = userId),
+            value = isPending,
+        )
+        getMutablePremiumUpgradePendingFlow(userId = userId).tryEmit(isPending)
+    }
+
+    override fun getPremiumUpgradePendingFlow(userId: String): Flow<Boolean?> =
+        getMutablePremiumUpgradePendingFlow(userId = userId)
+            .onSubscription { emit(getPremiumUpgradePending(userId = userId)) }
 
     override fun getAccountBiometricIntegrityValidity(
         userId: String,
@@ -447,6 +542,16 @@ class SettingsDiskSourceImpl(
         putBoolean(
             key = INLINE_AUTOFILL_ENABLED_KEY.appendIdentifier(userId),
             value = isInlineAutofillEnabled,
+        )
+    }
+
+    override fun getFillAssistEnabled(userId: String): Boolean? =
+        getBoolean(key = FILL_ASSIST_ENABLED_KEY.appendIdentifier(userId))
+
+    override fun storeFillAssistEnabled(userId: String, isFillAssistEnabled: Boolean?) {
+        putBoolean(
+            key = FILL_ASSIST_ENABLED_KEY.appendIdentifier(userId),
+            value = isFillAssistEnabled,
         )
     }
 
@@ -642,6 +747,27 @@ class SettingsDiskSourceImpl(
         userId: String,
     ): MutableSharedFlow<Boolean?> =
         mutablePremiumUpgradeBannerDismissedFlowMap.getOrPut(userId) {
+            bufferedMutableSharedFlow(replay = 1)
+        }
+
+    private fun getMutableUpgradedToPremiumCardConsumedFlow(
+        userId: String,
+    ): MutableSharedFlow<Boolean?> =
+        mutableUpgradedToPremiumCardConsumedFlowMap.getOrPut(userId) {
+            bufferedMutableSharedFlow(replay = 1)
+        }
+
+    private fun getMutableUpgradedToPremiumCardPendingFlow(
+        userId: String,
+    ): MutableSharedFlow<Boolean?> =
+        mutableUpgradedToPremiumCardPendingFlowMap.getOrPut(userId) {
+            bufferedMutableSharedFlow(replay = 1)
+        }
+
+    private fun getMutablePremiumUpgradePendingFlow(
+        userId: String,
+    ): MutableSharedFlow<Boolean?> =
+        mutablePremiumUpgradePendingFlowMap.getOrPut(userId) {
             bufferedMutableSharedFlow(replay = 1)
         }
 

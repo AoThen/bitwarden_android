@@ -31,6 +31,9 @@ data class VaultHandlers(
     val identityGroupClick: () -> Unit,
     val secureNoteGroupClick: () -> Unit,
     val sshKeyGroupClick: () -> Unit,
+    val bankAccountGroupClick: () -> Unit,
+    val licenseGroupClick: () -> Unit,
+    val passportGroupClick: () -> Unit,
     val archiveClick: () -> Unit,
     val trashClick: () -> Unit,
     val tryAgainClick: () -> Unit,
@@ -41,8 +44,6 @@ data class VaultHandlers(
         String,
     ) -> Unit,
     val masterPasswordRepromptSubmit: (VaultState.ViewState.VaultItem, String) -> Unit,
-    val dismissImportActionCard: () -> Unit,
-    val importActionCardClick: () -> Unit,
     val flightRecorderGoToSettingsClick: () -> Unit,
     val dismissFlightRecorderSnackbar: () -> Unit,
     val onShareCipherDecryptionErrorClick: (selectedCipherId: String) -> Unit,
@@ -96,6 +97,15 @@ data class VaultHandlers(
                     viewModel.trySendAction(VaultAction.SecureNoteGroupClick)
                 },
                 sshKeyGroupClick = { viewModel.trySendAction(VaultAction.SshKeyGroupClick) },
+                bankAccountGroupClick = {
+                    viewModel.trySendAction(VaultAction.BankAccountGroupClick)
+                },
+                licenseGroupClick = {
+                    viewModel.trySendAction(VaultAction.LicenseGroupClick)
+                },
+                passportGroupClick = {
+                    viewModel.trySendAction(VaultAction.PassportGroupClick)
+                },
                 archiveClick = { viewModel.trySendAction(VaultAction.ArchiveClick) },
                 trashClick = { viewModel.trySendAction(VaultAction.TrashClick) },
                 tryAgainClick = { viewModel.trySendAction(VaultAction.TryAgainClick) },
@@ -118,12 +128,6 @@ data class VaultHandlers(
                             password = password,
                         ),
                     )
-                },
-                dismissImportActionCard = {
-                    viewModel.trySendAction(VaultAction.DismissImportActionCard)
-                },
-                importActionCardClick = {
-                    viewModel.trySendAction(VaultAction.ImportActionCardClick)
                 },
                 flightRecorderGoToSettingsClick = {
                     viewModel.trySendAction(VaultAction.FlightRecorderGoToSettingsClick)

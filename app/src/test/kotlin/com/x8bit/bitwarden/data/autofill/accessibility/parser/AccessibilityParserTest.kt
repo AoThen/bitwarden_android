@@ -3,16 +3,18 @@ package com.x8bit.bitwarden.data.autofill.accessibility.parser
 import android.net.Uri
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.net.toUri
+import com.bitwarden.ui.platform.base.BaseRobolectricTest
 import com.x8bit.bitwarden.data.autofill.accessibility.manager.AccessibilityNodeInfoManager
 import com.x8bit.bitwarden.data.autofill.accessibility.model.Browser
 import com.x8bit.bitwarden.data.autofill.accessibility.model.FillableFields
 import io.mockk.every
 import io.mockk.mockk
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Test
+import io.mockk.verify
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
 
-class AccessibilityParserTest {
+class AccessibilityParserTest : BaseRobolectricTest() {
 
     private val accessibilityNodeInfoManager: AccessibilityNodeInfoManager = mockk()
 
@@ -141,12 +143,13 @@ class AccessibilityParserTest {
     @Suppress("MaxLineLength")
     @Test
     fun `parseForUriOrPackageName should return null when package is a supported browser and URL bar is not found`() {
-        val testBrowser = Browser(packageName = "com.android.chrome", urlFieldId = "url_bar")
+        val testPackageName = "com.android.chrome"
+        val testBrowser = Browser(packageName = testPackageName, urlFieldId = "url_bar")
         val rootNode = mockk<AccessibilityNodeInfo> {
-            every { packageName } returns testBrowser.packageName
+            every { packageName } returns testPackageName
             every {
                 findAccessibilityNodeInfosByViewId(
-                    "$packageName:id/${testBrowser.possibleUrlFieldIds.first()}",
+                    "$testPackageName:id/${testBrowser.possibleUrlFieldIds.first()}",
                 )
             } returns emptyList()
         }
@@ -158,17 +161,115 @@ class AccessibilityParserTest {
 
     @Suppress("MaxLineLength")
     @Test
+    fun `parseForUriOrPackageName should return null when URL bar node has no text or content description`() {
+        val testPackageName = "com.android.chrome"
+        val testBrowser = Browser(packageName = testPackageName, urlFieldId = "url_bar")
+        val emptyNode = mockk<AccessibilityNodeInfo> {
+            every { text } returns null
+            every { contentDescription } returns null
+        }
+        val rootNode = mockk<AccessibilityNodeInfo> {
+            every { packageName } returns testPackageName
+            every {
+                findAccessibilityNodeInfosByViewId(
+                    "$testPackageName:id/${testBrowser.possibleUrlFieldIds.first()}",
+                )
+            } returns listOf(emptyNode)
+        }
+
+        val result = accessibilityParser.parseForUriOrPackageName(rootNode = rootNode)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `parseForUriOrPackageName should not use semantic lookup when standard lookup succeeds`() {
+        val firefoxPackage = "org.mozilla.firefox"
+        val url = "https://www.reddit.com"
+        val urlNode = mockk<AccessibilityNodeInfo> {
+            every { text } returns url
+        }
+        val rootNode = mockk<AccessibilityNodeInfo> {
+            every { packageName } returns firefoxPackage
+            every { findAccessibilityNodeInfosByViewId(any()) } returns emptyList()
+            every {
+                findAccessibilityNodeInfosByViewId(
+                    "$firefoxPackage:id/mozac_browser_toolbar_url_view",
+                )
+            } returns listOf(urlNode)
+        }
+
+        val result = accessibilityParser.parseForUriOrPackageName(rootNode = rootNode)
+
+        assertEquals(url.toUri(), result)
+        verify(exactly = 0) {
+            accessibilityNodeInfoManager.findAccessibilityNodeInfoList(
+                rootNode = any(),
+                predicate = any(),
+            )
+        }
+    }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `parseForUriOrPackageName should return null when package is a supported browser with semantic ids and no URL bar is found`() {
+        val firefoxPackage = "org.mozilla.firefox"
+        val rootNode = mockk<AccessibilityNodeInfo> {
+            every { packageName } returns firefoxPackage
+            every { findAccessibilityNodeInfosByViewId(any()) } returns emptyList()
+        }
+        every {
+            accessibilityNodeInfoManager.findAccessibilityNodeInfoList(
+                rootNode = rootNode,
+                predicate = any(),
+            )
+        } returns emptyList()
+
+        val result = accessibilityParser.parseForUriOrPackageName(rootNode = rootNode)
+
+        assertNull(result)
+    }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `parseForUriOrPackageName should return the site url from content description when URL bar is found via semantic id`() {
+        val firefoxPackage = "org.mozilla.firefox"
+        val contentDesc = " www.reddit.com. Search or enter address"
+        val urlNode = mockk<AccessibilityNodeInfo> {
+            every { text } returns null
+            every { contentDescription } returns contentDesc
+        }
+        val rootNode = mockk<AccessibilityNodeInfo> {
+            every { packageName } returns firefoxPackage
+            every { findAccessibilityNodeInfosByViewId(any()) } returns emptyList()
+        }
+        every {
+            accessibilityNodeInfoManager.findAccessibilityNodeInfoList(
+                rootNode = rootNode,
+                predicate = any(),
+            )
+        } returns listOf(urlNode)
+        val expectedResult = Uri.parse("https://www.reddit.com")
+
+        val result = accessibilityParser.parseForUriOrPackageName(rootNode = rootNode)
+
+        assertEquals(expectedResult, result)
+    }
+
+    @Suppress("MaxLineLength")
+    @Test
     fun `parseForUriOrPackageName should return the site url un-augmented with https protocol as a URI when package is a supported browser and URL is found`() {
-        val testBrowser = Browser(packageName = "com.android.chrome", urlFieldId = "url_bar")
+        val testPackageName = "com.android.chrome"
+        val testBrowser = Browser(packageName = testPackageName, urlFieldId = "url_bar")
         val url = "https://www.google.com"
         val urlNode = mockk<AccessibilityNodeInfo> {
             every { text } returns url
         }
         val rootNode = mockk<AccessibilityNodeInfo> {
-            every { packageName } returns testBrowser.packageName
+            every { packageName } returns testPackageName
             every {
                 findAccessibilityNodeInfosByViewId(
-                    "$packageName:id/${testBrowser.possibleUrlFieldIds.first()}",
+                    "$testPackageName:id/${testBrowser.possibleUrlFieldIds.first()}",
                 )
             } returns listOf(urlNode)
         }
@@ -182,16 +283,17 @@ class AccessibilityParserTest {
     @Suppress("MaxLineLength")
     @Test
     fun `parseForUriOrPackageName should return the site url un-augmented with http protocol as a URI when package is a supported browser and URL is found`() {
-        val testBrowser = Browser(packageName = "com.android.chrome", urlFieldId = "url_bar")
+        val testPackageName = "com.android.chrome"
+        val testBrowser = Browser(packageName = testPackageName, urlFieldId = "url_bar")
         val url = "http://www.google.com"
         val urlNode = mockk<AccessibilityNodeInfo> {
             every { text } returns url
         }
         val rootNode = mockk<AccessibilityNodeInfo> {
-            every { packageName } returns testBrowser.packageName
+            every { packageName } returns testPackageName
             every {
                 findAccessibilityNodeInfosByViewId(
-                    "$packageName:id/${testBrowser.possibleUrlFieldIds.first()}",
+                    "$testPackageName:id/${testBrowser.possibleUrlFieldIds.first()}",
                 )
             } returns listOf(urlNode)
         }
@@ -205,16 +307,17 @@ class AccessibilityParserTest {
     @Suppress("MaxLineLength")
     @Test
     fun `parseForUriOrPackageName should return the site url augmented with https protocol as a URI when package is a supported browser and URL is found`() {
-        val testBrowser = Browser(packageName = "com.android.chrome", urlFieldId = "url_bar")
+        val testPackageName = "com.android.chrome"
+        val testBrowser = Browser(packageName = testPackageName, urlFieldId = "url_bar")
         val url = "www.google.com"
         val urlNode = mockk<AccessibilityNodeInfo> {
             every { text } returns url
         }
         val rootNode = mockk<AccessibilityNodeInfo> {
-            every { packageName } returns testBrowser.packageName
+            every { packageName } returns testPackageName
             every {
                 findAccessibilityNodeInfosByViewId(
-                    "$packageName:id/${testBrowser.possibleUrlFieldIds.first()}",
+                    "$testPackageName:id/${testBrowser.possibleUrlFieldIds.first()}",
                 )
             } returns listOf(urlNode)
         }

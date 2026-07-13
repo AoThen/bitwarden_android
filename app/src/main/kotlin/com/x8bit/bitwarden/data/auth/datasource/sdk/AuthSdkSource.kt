@@ -1,6 +1,9 @@
 package com.x8bit.bitwarden.data.auth.datasource.sdk
 
+import com.bitwarden.auth.JitMasterPasswordRegistrationResponse
 import com.bitwarden.auth.KeyConnectorRegistrationResult
+import com.bitwarden.auth.TdeRegistrationResponse
+import com.bitwarden.auth.UserMasterPasswordRegistrationResponse
 import com.bitwarden.core.AuthRequestResponse
 import com.bitwarden.core.KeyConnectorResponse
 import com.bitwarden.core.MasterPasswordPolicyOptions
@@ -8,12 +11,31 @@ import com.bitwarden.core.RegisterKeyResponse
 import com.bitwarden.core.RegisterTdeKeyResponse
 import com.bitwarden.crypto.HashPurpose
 import com.bitwarden.crypto.Kdf
+import com.bitwarden.policies.OrganizationUserPolicyContext
+import com.bitwarden.policies.PolicyType
+import com.bitwarden.policies.PolicyView
 import com.x8bit.bitwarden.data.auth.datasource.sdk.model.PasswordStrength
 
 /**
  * Source of authentication information and functionality from the Bitwarden SDK.
  */
+@Suppress("TooManyFunctions")
 interface AuthSdkSource {
+    /**
+     * Enrolls the user to master password unlock.
+     */
+    @Suppress("LongParameterList")
+    suspend fun postKeysForJitPasswordRegistration(
+        userId: String,
+        organizationId: String,
+        organizationPublicKey: String,
+        organizationSsoIdentifier: String,
+        salt: String,
+        masterPassword: String,
+        masterPasswordHint: String?,
+        shouldResetPasswordEnroll: Boolean,
+    ): Result<JitMasterPasswordRegistrationResponse>
+
     /**
      * Enrolls the user to key connector unlock.
      */
@@ -23,6 +45,28 @@ interface AuthSdkSource {
         keyConnectorUrl: String,
         ssoOrganizationIdentifier: String,
     ): Result<KeyConnectorRegistrationResult>
+
+    /**
+     * Enrolls the user to TDE unlock.
+     */
+    suspend fun postKeysForTdeRegistration(
+        userId: String,
+        organizationId: String,
+        organizationPublicKey: String,
+        deviceIdentifier: String,
+        shouldTrustDevice: Boolean,
+    ): Result<TdeRegistrationResponse>
+
+    /**
+     * Enrolls the user for password unlock.
+     */
+    suspend fun postKeysForUserPasswordRegistration(
+        email: String,
+        salt: String,
+        masterPassword: String,
+        masterPasswordHint: String?,
+        emailVerificationToken: String,
+    ): Result<UserMasterPasswordRegistrationResponse>
 
     /**
      * Gets the data needed to create a new auth request.
@@ -93,4 +137,13 @@ interface AuthSdkSource {
         passwordStrength: PasswordStrength,
         policy: MasterPasswordPolicyOptions,
     ): Result<Boolean>
+
+    /**
+     * Applies the appropriate filters for determining what policies apply to the user.
+     */
+    fun filterPolicies(
+        policies: List<PolicyView>,
+        organizations: List<OrganizationUserPolicyContext>,
+        policyType: PolicyType,
+    ): Result<List<PolicyView>>
 }

@@ -46,6 +46,7 @@ import com.x8bit.bitwarden.ui.vault.feature.item.model.VaultItemStateData
 import com.x8bit.bitwarden.ui.vault.feature.item.util.toViewState
 import com.x8bit.bitwarden.ui.vault.feature.util.canAssignToCollections
 import com.x8bit.bitwarden.ui.vault.feature.util.hasDeletePermissionInAtLeastOneCollection
+import com.x8bit.bitwarden.ui.vault.model.VaultBankAccountType
 import com.x8bit.bitwarden.ui.vault.model.VaultCardBrand
 import com.x8bit.bitwarden.ui.vault.model.VaultItemCipherType
 import com.x8bit.bitwarden.ui.vault.model.VaultLinkedFieldType
@@ -238,6 +239,12 @@ class VaultItemViewModel @Inject constructor(
             is VaultItemAction.ItemType.Card -> handleCardTypeActions(action)
             is VaultItemAction.ItemType.SshKey -> handleSshKeyTypeActions(action)
             is VaultItemAction.ItemType.Identity -> handleIdentityTypeActions(action)
+            is VaultItemAction.ItemType.BankAccount -> handleBankAccountTypeActions(action)
+            is VaultItemAction.ItemType.DriversLicense -> {
+                handleDriversLicenseTypeActions(action)
+            }
+
+            is VaultItemAction.ItemType.Passport -> handlePassportTypeActions(action)
             is VaultItemAction.Common -> handleCommonActions(action)
             is VaultItemAction.Internal -> handleInternalAction(action)
         }
@@ -296,6 +303,7 @@ class VaultItemViewModel @Inject constructor(
             is VaultItemAction.Common.PasswordHistoryClick -> handlePasswordHistoryClick()
             VaultItemAction.Common.ArchiveClick -> handleArchiveClick()
             VaultItemAction.Common.UnarchiveClick -> handleUnarchiveClick()
+            VaultItemAction.Common.PremiumRequiredClick -> handlePremiumRequiredClick()
             VaultItemAction.Common.UpgradeToPremiumClick -> handleUpgradeToPremiumClick()
         }
     }
@@ -683,7 +691,11 @@ class VaultItemViewModel @Inject constructor(
     private fun handleArchiveClick() {
         if (!state.hasPremium) {
             mutableStateFlow.update {
-                it.copy(dialog = VaultItemState.DialogState.ArchiveRequiresPremium)
+                it.copy(
+                    dialog = VaultItemState.DialogState.RequiresPremium(
+                        message = BitwardenString.archiving_items_is_a_premium_feature.asText(),
+                    ),
+                )
             }
             return
         }
@@ -731,6 +743,16 @@ class VaultItemViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    private fun handlePremiumRequiredClick() {
+        mutableStateFlow.update {
+            it.copy(
+                dialog = VaultItemState.DialogState.RequiresPremium(
+                    message = BitwardenString.totp_is_a_premium_feature.asText(),
+                ),
+            )
         }
     }
 
@@ -1040,6 +1062,289 @@ class VaultItemViewModel @Inject constructor(
     }
 
     //endregion Identity Type Handlers
+
+    //region Bank Account Type Handlers
+
+    private fun handleBankAccountTypeActions(action: VaultItemAction.ItemType.BankAccount) {
+        when (action) {
+            VaultItemAction.ItemType.BankAccount.CopyNameOnAccountClick -> {
+                handleCopyBankNameOnAccountClick()
+            }
+
+            VaultItemAction.ItemType.BankAccount.CopyAccountNumberClick -> {
+                handleCopyBankAccountNumberClick()
+            }
+
+            VaultItemAction.ItemType.BankAccount.CopyRoutingNumberClick -> {
+                handleCopyBankRoutingNumberClick()
+            }
+
+            VaultItemAction.ItemType.BankAccount.CopyBranchNumberClick -> {
+                handleCopyBankBranchNumberClick()
+            }
+
+            VaultItemAction.ItemType.BankAccount.CopyPinClick -> {
+                handleCopyBankPinClick()
+            }
+
+            VaultItemAction.ItemType.BankAccount.CopySwiftCodeClick -> {
+                handleCopyBankSwiftCodeClick()
+            }
+
+            VaultItemAction.ItemType.BankAccount.CopyIbanClick -> {
+                handleCopyBankIbanClick()
+            }
+
+            VaultItemAction.ItemType.BankAccount.CopyBankContactPhoneClick -> {
+                handleCopyBankContactPhoneClick()
+            }
+        }
+    }
+
+    private fun handleCopyBankNameOnAccountClick() {
+        onBankAccountContent { _, bankAccount ->
+            bankAccount.nameOnAccount?.let { nameOnAccount ->
+                clipboardManager.setText(
+                    text = nameOnAccount,
+                    toastDescriptorOverride = BitwardenString.name_on_account.asText(),
+                )
+            }
+        }
+    }
+
+    private fun handleCopyBankAccountNumberClick() {
+        onBankAccountContent { _, bankAccount ->
+            bankAccount.accountNumber?.let { accountNumber ->
+                clipboardManager.setText(
+                    text = accountNumber,
+                    toastDescriptorOverride = BitwardenString.account_number.asText(),
+                )
+            }
+        }
+    }
+
+    private fun handleCopyBankRoutingNumberClick() {
+        onBankAccountContent { _, bankAccount ->
+            bankAccount.routingNumber?.let { routingNumber ->
+                clipboardManager.setText(
+                    text = routingNumber,
+                    toastDescriptorOverride = BitwardenString.routing_number.asText(),
+                )
+            }
+        }
+    }
+
+    private fun handleCopyBankBranchNumberClick() {
+        onBankAccountContent { _, bankAccount ->
+            bankAccount.branchNumber?.let { branchNumber ->
+                clipboardManager.setText(
+                    text = branchNumber,
+                    toastDescriptorOverride = BitwardenString.branch_number.asText(),
+                )
+            }
+        }
+    }
+
+    private fun handleCopyBankPinClick() {
+        onBankAccountContent { _, bankAccount ->
+            bankAccount.pin?.let { pin ->
+                clipboardManager.setText(
+                    text = pin,
+                    toastDescriptorOverride = BitwardenString.pin.asText(),
+                )
+            }
+        }
+    }
+
+    private fun handleCopyBankSwiftCodeClick() {
+        onBankAccountContent { _, bankAccount ->
+            bankAccount.swiftCode?.let { swiftCode ->
+                clipboardManager.setText(
+                    text = swiftCode,
+                    toastDescriptorOverride = BitwardenString.swift_code.asText(),
+                )
+            }
+        }
+    }
+
+    private fun handleCopyBankIbanClick() {
+        onBankAccountContent { _, bankAccount ->
+            bankAccount.iban?.let { iban ->
+                clipboardManager.setText(
+                    text = iban,
+                    toastDescriptorOverride = BitwardenString.iban.asText(),
+                )
+            }
+        }
+    }
+
+    private fun handleCopyBankContactPhoneClick() {
+        onBankAccountContent { _, bankAccount ->
+            bankAccount.bankContactPhone?.let { bankContactPhone ->
+                clipboardManager.setText(
+                    text = bankContactPhone,
+                    toastDescriptorOverride = BitwardenString.bank_contact_phone.asText(),
+                )
+            }
+        }
+    }
+
+    //endregion Bank Account Type Handlers
+
+    //region Driver's License Type Handlers
+
+    private fun handleDriversLicenseTypeActions(
+        action: VaultItemAction.ItemType.DriversLicense,
+    ) {
+        when (action) {
+            VaultItemAction.ItemType.DriversLicense.CopyFirstNameClick -> {
+                handleCopyDriversLicenseFirstNameClick()
+            }
+
+            VaultItemAction.ItemType.DriversLicense.CopyMiddleNameClick -> {
+                handleCopyDriversLicenseMiddleNameClick()
+            }
+
+            VaultItemAction.ItemType.DriversLicense.CopyLastNameClick -> {
+                handleCopyDriversLicenseLastNameClick()
+            }
+
+            VaultItemAction.ItemType.DriversLicense.CopyLicenseNumberClick -> {
+                handleCopyDriversLicenseNumberClick()
+            }
+        }
+    }
+
+    private fun handleCopyDriversLicenseFirstNameClick() {
+        onDriversLicenseContent { _, driversLicense ->
+            driversLicense.firstName
+                ?.takeIf { it.isNotBlank() }
+                ?.let { firstName ->
+                    clipboardManager.setText(
+                        text = firstName,
+                        toastDescriptorOverride = BitwardenString.first_name.asText(),
+                    )
+                }
+        }
+    }
+
+    private fun handleCopyDriversLicenseMiddleNameClick() {
+        onDriversLicenseContent { _, driversLicense ->
+            driversLicense.middleName
+                ?.takeIf { it.isNotBlank() }
+                ?.let { middleName ->
+                    clipboardManager.setText(
+                        text = middleName,
+                        toastDescriptorOverride = BitwardenString.middle_name.asText(),
+                    )
+                }
+        }
+    }
+
+    private fun handleCopyDriversLicenseLastNameClick() {
+        onDriversLicenseContent { _, driversLicense ->
+            driversLicense.lastName
+                ?.takeIf { it.isNotBlank() }
+                ?.let { lastName ->
+                    clipboardManager.setText(
+                        text = lastName,
+                        toastDescriptorOverride = BitwardenString.last_name.asText(),
+                    )
+                }
+        }
+    }
+
+    private fun handleCopyDriversLicenseNumberClick() {
+        onDriversLicenseContent { _, driversLicense ->
+            driversLicense.licenseNumber
+                ?.takeIf { it.isNotBlank() }
+                ?.let { licenseNumber ->
+                    clipboardManager.setText(
+                        text = licenseNumber,
+                        toastDescriptorOverride = BitwardenString.license_number.asText(),
+                    )
+                }
+        }
+    }
+
+    //endregion Driver's License Type Handlers
+
+    //region Passport Type Handlers
+
+    private fun handlePassportTypeActions(action: VaultItemAction.ItemType.Passport) {
+        when (action) {
+            VaultItemAction.ItemType.Passport.CopyGivenNameClick -> {
+                handleCopyPassportGivenNameClick()
+            }
+
+            VaultItemAction.ItemType.Passport.CopySurnameClick -> {
+                handleCopyPassportSurnameClick()
+            }
+
+            VaultItemAction.ItemType.Passport.CopyPassportNumberClick -> {
+                handleCopyPassportItemNumberClick()
+            }
+
+            VaultItemAction.ItemType.Passport.CopyNationalIdentificationNumberClick -> {
+                handleCopyNationalIdentificationNumberClick()
+            }
+        }
+    }
+
+    private fun handleCopyPassportGivenNameClick() {
+        onPassportContent { _, passport ->
+            passport.givenName
+                ?.takeIf { it.isNotBlank() }
+                ?.let { givenName ->
+                    clipboardManager.setText(
+                        text = givenName,
+                        toastDescriptorOverride = BitwardenString.first_name.asText(),
+                    )
+                }
+        }
+    }
+
+    private fun handleCopyPassportSurnameClick() {
+        onPassportContent { _, passport ->
+            passport.surname
+                ?.takeIf { it.isNotBlank() }
+                ?.let { surname ->
+                    clipboardManager.setText(
+                        text = surname,
+                        toastDescriptorOverride = BitwardenString.last_name.asText(),
+                    )
+                }
+        }
+    }
+
+    private fun handleCopyPassportItemNumberClick() {
+        onPassportContent { _, passport ->
+            passport.passportNumber
+                ?.takeIf { it.isNotBlank() }
+                ?.let { passportNumber ->
+                    clipboardManager.setText(
+                        text = passportNumber,
+                        toastDescriptorOverride = BitwardenString.passport_number.asText(),
+                    )
+                }
+        }
+    }
+
+    private fun handleCopyNationalIdentificationNumberClick() {
+        onPassportContent { _, passport ->
+            passport.nationalIdentificationNumber
+                ?.takeIf { it.isNotBlank() }
+                ?.let { nationalIdentificationNumber ->
+                    clipboardManager.setText(
+                        text = nationalIdentificationNumber,
+                        toastDescriptorOverride =
+                            BitwardenString.national_identification_number.asText(),
+                    )
+                }
+        }
+    }
+
+    //endregion Passport Type Handlers
 
     //region Internal Type Handlers
 
@@ -1423,6 +1728,51 @@ class VaultItemViewModel @Inject constructor(
                     }
             }
     }
+
+    private inline fun onBankAccountContent(
+        crossinline block: (
+            VaultItemState.ViewState.Content,
+            VaultItemState.ViewState.Content.ItemType.BankAccount,
+        ) -> Unit,
+    ) {
+        state.viewState.asContentOrNull()
+            ?.let { content ->
+                (content.type as? VaultItemState.ViewState.Content.ItemType.BankAccount)
+                    ?.let { bankAccountContent ->
+                        block(content, bankAccountContent)
+                    }
+            }
+    }
+
+    private inline fun onDriversLicenseContent(
+        crossinline block: (
+            VaultItemState.ViewState.Content,
+            VaultItemState.ViewState.Content.ItemType.DriversLicense,
+        ) -> Unit,
+    ) {
+        state.viewState.asContentOrNull()
+            ?.let { content ->
+                (content.type as? VaultItemState.ViewState.Content.ItemType.DriversLicense)
+                    ?.let { driversLicenseContent ->
+                        block(content, driversLicenseContent)
+                    }
+            }
+    }
+
+    private inline fun onPassportContent(
+        crossinline block: (
+            VaultItemState.ViewState.Content,
+            VaultItemState.ViewState.Content.ItemType.Passport,
+        ) -> Unit,
+    ) {
+        state.viewState.asContentOrNull()
+            ?.let { content ->
+                (content.type as? VaultItemState.ViewState.Content.ItemType.Passport)
+                    ?.let { passportContent ->
+                        block(content, passportContent)
+                    }
+            }
+    }
 }
 
 /**
@@ -1449,6 +1799,9 @@ data class VaultItemState(
             VaultItemCipherType.IDENTITY -> BitwardenString.view_identity.asText()
             VaultItemCipherType.SECURE_NOTE -> BitwardenString.view_note.asText()
             VaultItemCipherType.SSH_KEY -> BitwardenString.view_ssh_key.asText()
+            VaultItemCipherType.BANK_ACCOUNT -> BitwardenString.view_bank_account.asText()
+            VaultItemCipherType.DRIVERS_LICENSE -> BitwardenString.view_license.asText()
+            VaultItemCipherType.PASSPORT -> BitwardenString.view_passport.asText()
         }
 
     /**
@@ -1469,7 +1822,9 @@ data class VaultItemState(
      * Whether the fab is visible.
      */
     val isFabVisible: Boolean
-        get() = viewState is ViewState.Content && !isCipherDeleted && isCipherEditable
+        get() = viewState is ViewState.Content &&
+            !isCipherDeleted &&
+            isCipherEditable
 
     /**
      * Whether the cipher is in a collection.
@@ -1869,6 +2224,116 @@ data class VaultItemState(
                     val fingerprint: String,
                     val showPrivateKey: Boolean,
                 ) : ItemType()
+
+                /**
+                 * Represents the `BankAccount` item type.
+                 */
+                data class BankAccount(
+                    val bankName: String?,
+                    val nameOnAccount: String?,
+                    val accountType: VaultBankAccountType?,
+                    val accountNumber: String?,
+                    val routingNumber: String?,
+                    val branchNumber: String?,
+                    val pin: String?,
+                    val swiftCode: String?,
+                    val iban: String?,
+                    val bankContactPhone: String?,
+                ) : ItemType() {
+
+                    /**
+                     * An ordered list of Bank Account specific elements.
+                     */
+                    val propertyList: ImmutableList<Any>
+                        get() = persistentListOfNotNull(
+                            bankName,
+                            nameOnAccount,
+                            accountType,
+                            accountNumber,
+                            routingNumber,
+                            branchNumber,
+                            pin,
+                            swiftCode,
+                            iban,
+                            bankContactPhone,
+                        )
+                }
+
+                /**
+                 * Represents the `License` item type.
+                 */
+                data class DriversLicense(
+                    val firstName: String?,
+                    val middleName: String?,
+                    val lastName: String?,
+                    val licenseNumber: String?,
+                    val dateOfBirth: String?,
+                    val issuingCountry: String?,
+                    val issuingState: String?,
+                    val issuingAuthority: String?,
+                    val issueDate: String?,
+                    val expirationDate: String?,
+                    val licenseClass: String?,
+                ) : ItemType() {
+
+                    /**
+                     * An ordered list of populated License elements.
+                     */
+                    val propertyList: ImmutableList<String>
+                        get() = persistentListOfNotNull(
+                            firstName,
+                            middleName,
+                            lastName,
+                            licenseNumber,
+                            dateOfBirth,
+                            issuingCountry,
+                            issuingState,
+                            issuingAuthority,
+                            issueDate,
+                            expirationDate,
+                            licenseClass,
+                        )
+                }
+
+                /**
+                 * Represents the `Passport` item type.
+                 */
+                data class Passport(
+                    val givenName: String?,
+                    val surname: String?,
+                    val dateOfBirth: String?,
+                    val sex: String?,
+                    val birthPlace: String?,
+                    val nationality: String?,
+                    val passportNumber: String?,
+                    val passportType: String?,
+                    val nationalIdentificationNumber: String?,
+                    val issuingCountry: String?,
+                    val issuingAuthority: String?,
+                    val issueDate: String?,
+                    val expirationDate: String?,
+                ) : ItemType() {
+
+                    /**
+                     * An ordered list of populated Passport elements.
+                     */
+                    val propertyList: ImmutableList<String>
+                        get() = persistentListOfNotNull(
+                            givenName,
+                            surname,
+                            dateOfBirth,
+                            sex,
+                            birthPlace,
+                            nationality,
+                            passportNumber,
+                            passportType,
+                            nationalIdentificationNumber,
+                            issuingCountry,
+                            issuingAuthority,
+                            issueDate,
+                            expirationDate,
+                        )
+                }
             }
         }
 
@@ -1885,10 +2350,13 @@ data class VaultItemState(
     sealed class DialogState : Parcelable {
 
         /**
-         * Displays a dialog to the user indicating that archiving requires a Premium account.
+         * Displays a dialog to the user indicating that the feature they are interacting with
+         * requires a Premium account.
          */
         @Parcelize
-        data object ArchiveRequiresPremium : DialogState()
+        data class RequiresPremium(
+            val message: Text,
+        ) : DialogState()
 
         /**
          * Displays a generic dialog to the user.
@@ -2049,6 +2517,11 @@ sealed class VaultItemAction {
          * The user has clicked the unarchive button.
          */
         data object UnarchiveClick : Common()
+
+        /**
+         * The user has clicked the Premium subscription required button.
+         */
+        data object PremiumRequiredClick : Common()
 
         /**
          * The user has clicked the upgrade to Premium button.
@@ -2335,6 +2808,105 @@ sealed class VaultItemAction {
              * The user has clicked the copy button for the address.
              */
             data object CopyAddressClick : Identity()
+        }
+
+        /**
+         * Represents actions specific to the Bank Account type.
+         */
+        sealed class BankAccount : ItemType() {
+
+            /**
+             * The user has clicked the copy button for the name on account.
+             */
+            data object CopyNameOnAccountClick : BankAccount()
+
+            /**
+             * The user has clicked the copy button for the account number.
+             */
+            data object CopyAccountNumberClick : BankAccount()
+
+            /**
+             * The user has clicked the copy button for the routing number.
+             */
+            data object CopyRoutingNumberClick : BankAccount()
+
+            /**
+             * The user has clicked the copy button for the branch number.
+             */
+            data object CopyBranchNumberClick : BankAccount()
+
+            /**
+             * The user has clicked the copy button for the PIN.
+             */
+            data object CopyPinClick : BankAccount()
+
+            /**
+             * The user has clicked the copy button for the SWIFT code.
+             */
+            data object CopySwiftCodeClick : BankAccount()
+
+            /**
+             * The user has clicked the copy button for the IBAN.
+             */
+            data object CopyIbanClick : BankAccount()
+
+            /**
+             * The user has clicked the copy button for the bank contact phone.
+             */
+            data object CopyBankContactPhoneClick : BankAccount()
+        }
+
+        /**
+         * Represents actions specific to the Driver's License type.
+         */
+        sealed class DriversLicense : ItemType() {
+
+            /**
+             * The user has clicked the copy button for the first name.
+             */
+            data object CopyFirstNameClick : DriversLicense()
+
+            /**
+             * The user has clicked the copy button for the middle name.
+             */
+            data object CopyMiddleNameClick : DriversLicense()
+
+            /**
+             * The user has clicked the copy button for the last name.
+             */
+            data object CopyLastNameClick : DriversLicense()
+
+            /**
+             * The user has clicked the copy button for the license number.
+             */
+            data object CopyLicenseNumberClick : DriversLicense()
+        }
+
+        /**
+         * Represents actions specific to the Passport type.
+         */
+        sealed class Passport : ItemType() {
+
+            /**
+             * The user has clicked the copy button for the given name.
+             */
+            data object CopyGivenNameClick : Passport()
+
+            /**
+             * The user has clicked the copy button for the surname.
+             */
+            data object CopySurnameClick : Passport()
+
+            /**
+             * The user has clicked the copy button for the passport number.
+             */
+            data object CopyPassportNumberClick : Passport()
+
+            /**
+             * The user has clicked the copy button for the national identification
+             * number.
+             */
+            data object CopyNationalIdentificationNumberClick : Passport()
         }
     }
 

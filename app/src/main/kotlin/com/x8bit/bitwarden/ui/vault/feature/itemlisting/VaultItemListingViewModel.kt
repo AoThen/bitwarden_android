@@ -11,13 +11,15 @@ import androidx.credentials.provider.ProviderCreateCredentialRequest
 import androidx.credentials.provider.ProviderGetCredentialRequest
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.bitwarden.core.data.manager.model.FlagKey
 import com.bitwarden.core.data.manager.toast.ToastManager
 import com.bitwarden.core.data.repository.model.DataState
 import com.bitwarden.core.data.repository.util.map
+import com.bitwarden.core.util.persistentListOfNotNull
 import com.bitwarden.data.repository.util.baseIconUrl
 import com.bitwarden.data.repository.util.baseWebSendUrl
 import com.bitwarden.data.repository.util.baseWebVaultUrlOrDefault
-import com.bitwarden.network.model.PolicyTypeJson
+import com.bitwarden.policies.PolicyType
 import com.bitwarden.send.SendType
 import com.bitwarden.ui.platform.base.BackgroundEvent
 import com.bitwarden.ui.platform.base.BaseViewModel
@@ -58,6 +60,7 @@ import com.x8bit.bitwarden.data.credentials.model.ValidateOriginResult
 import com.x8bit.bitwarden.data.credentials.parser.RelyingPartyParser
 import com.x8bit.bitwarden.data.credentials.repository.PrivilegedAppRepository
 import com.x8bit.bitwarden.data.credentials.util.getCreatePasskeyCredentialRequestOrNull
+import com.x8bit.bitwarden.data.platform.manager.FeatureFlagManager
 import com.x8bit.bitwarden.data.platform.manager.PolicyManager
 import com.x8bit.bitwarden.data.platform.manager.SpecialCircumstanceManager
 import com.x8bit.bitwarden.data.platform.manager.ciphermatching.CipherMatchingManager
@@ -152,6 +155,7 @@ class VaultItemListingViewModel @Inject constructor(
     private val toastManager: ToastManager,
     private val premiumStateManager: PremiumStateManager,
     snackbarRelayManager: SnackbarRelayManager<SnackbarRelay>,
+    private val featureFlagManager: FeatureFlagManager,
 ) : BaseViewModel<VaultItemListingState, VaultItemListingEvent, VaultItemListingsAction>(
     initialState = run {
         val userState = requireNotNull(authRepository.userStateFlow.value)
@@ -181,7 +185,7 @@ class VaultItemListingViewModel @Inject constructor(
                     VaultItemListingState.DialogState.Loading(BitwardenString.loading.asText())
                 },
             policyDisablesSend = policyManager
-                .getActivePolicies(type = PolicyTypeJson.DISABLE_SEND)
+                .getActivePolicies(type = PolicyType.DISABLE_SEND)
                 .any(),
             restrictItemTypesPolicyOrgIds = persistentListOf(),
             autofillSelectionData = specialCircumstance?.toAutofillSelectionDataOrNull(),
@@ -210,13 +214,13 @@ class VaultItemListingViewModel @Inject constructor(
             .launchIn(viewModelScope)
 
         policyManager
-            .getActivePoliciesFlow(type = PolicyTypeJson.DISABLE_SEND)
+            .getActivePoliciesFlow(type = PolicyType.DISABLE_SEND)
             .map { VaultItemListingsAction.Internal.PolicyUpdateReceive(it.any()) }
             .onEach(::sendAction)
             .launchIn(viewModelScope)
 
         policyManager
-            .getActivePoliciesFlow(type = PolicyTypeJson.RESTRICT_ITEM_TYPES)
+            .getActivePoliciesFlow(type = PolicyType.RESTRICTED_ITEM_TYPES)
             .map { policies -> policies.map { it.organizationId } }
             .map { VaultItemListingsAction.Internal.RestrictItemTypesPolicyUpdateReceive(it) }
             .onEach(::sendAction)
@@ -705,6 +709,9 @@ class VaultItemListingViewModel @Inject constructor(
             CreateVaultItemType.IDENTITY,
             CreateVaultItemType.SECURE_NOTE,
             CreateVaultItemType.SSH_KEY,
+            CreateVaultItemType.BANK_ACCOUNT,
+            CreateVaultItemType.LICENSE,
+            CreateVaultItemType.PASSPORT,
                 -> {
                 vaultItemType
                     .toVaultItemCipherTypeOrNull()
@@ -841,20 +848,27 @@ class VaultItemListingViewModel @Inject constructor(
     }
 
     private fun createVaultItemTypeSelectionExcludedOptions(): ImmutableList<CreateVaultItemType> {
-        // If policy is enable for any organization, exclude the card option
-        return if (state.restrictItemTypesPolicyOrgIds.isNotEmpty()) {
-            persistentListOf(
-                CreateVaultItemType.CARD,
-                CreateVaultItemType.FOLDER,
-                CreateVaultItemType.SSH_KEY,
-            )
+        val isNewItemTypesEnabled = featureFlagManager
+            .getFeatureFlag(FlagKey.NewItemTypes)
+        return persistentListOfNotNull(
+            CreateVaultItemType.CARD.takeIf { state.restrictItemTypesPolicyOrgIds.isNotEmpty() },
+            CreateVaultItemType.FOLDER,
+            CreateVaultItemType.SSH_KEY,
+            CreateVaultItemType.BANK_ACCOUNT.takeUnless { isNewItemTypesEnabled },
+            CreateVaultItemType.LICENSE.takeUnless { isNewItemTypesEnabled },
+            CreateVaultItemType.PASSPORT.takeUnless { isNewItemTypesEnabled },
+        )
+    }
+
+    private fun fileSendRequiresPremiumDialog(): VaultItemListingState.DialogState =
+        if (premiumStateManager.isInAppUpgradeAvailable()) {
+            VaultItemListingState.DialogState.FileTypeRequiresPremium
         } else {
-            persistentListOf(
-                CreateVaultItemType.SSH_KEY,
-                CreateVaultItemType.FOLDER,
+            VaultItemListingState.DialogState.Error(
+                title = BitwardenString.send.asText(),
+                message = BitwardenString.send_file_premium_required.asText(),
             )
         }
-    }
 
     private fun handleAddVaultItemClick() {
         when (val itemListingType = state.itemListingType) {
@@ -893,14 +907,7 @@ class VaultItemListingViewModel @Inject constructor(
                             sendEvent(VaultItemListingEvent.NavigateToAddSendItem(sendType))
                         } else {
                             mutableStateFlow.update {
-                                it.copy(
-                                    dialogState = VaultItemListingState.DialogState.Error(
-                                        title = BitwardenString.send.asText(),
-                                        message = BitwardenString
-                                            .send_file_premium_required
-                                            .asText(),
-                                    ),
-                                )
+                                it.copy(dialogState = fileSendRequiresPremiumDialog())
                             }
                         }
                     }
@@ -1275,6 +1282,70 @@ class VaultItemListingViewModel @Inject constructor(
         }
     }
 
+    private fun handleCopyAccountNumberClick(
+        action: ListingItemOverflowAction.VaultAction.CopyAccountNumberClick,
+    ) {
+        viewModelScope.launch {
+            getCipherViewOrNull(action.cipherId)?.bankAccount?.accountNumber
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    clipboardManager.setText(
+                        text = it,
+                        toastDescriptorOverride = BitwardenString.account_number.asText(),
+                    )
+                }
+        }
+    }
+
+    private fun handleCopyRoutingNumberClick(
+        action: ListingItemOverflowAction.VaultAction.CopyRoutingNumberClick,
+    ) {
+        viewModelScope.launch {
+            getCipherViewOrNull(action.cipherId)?.bankAccount?.routingNumber
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    clipboardManager.setText(
+                        text = it,
+                        toastDescriptorOverride = BitwardenString.routing_number.asText(),
+                    )
+                }
+        }
+    }
+
+    private fun handleCopyLicenseNumberClick(
+        action: ListingItemOverflowAction.VaultAction.CopyLicenseNumberClick,
+    ) {
+        viewModelScope.launch {
+            getCipherViewOrNull(action.cipherId)
+                ?.driversLicense
+                ?.licenseNumber
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    clipboardManager.setText(
+                        text = it,
+                        toastDescriptorOverride = BitwardenString.license_number.asText(),
+                    )
+                }
+        }
+    }
+
+    private fun handleCopyPassportNumberClick(
+        action: ListingItemOverflowAction.VaultAction.CopyPassportNumberClick,
+    ) {
+        viewModelScope.launch {
+            getCipherViewOrNull(action.cipherId)
+                ?.passport
+                ?.passportNumber
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    clipboardManager.setText(
+                        text = it,
+                        toastDescriptorOverride = BitwardenString.passport_number.asText(),
+                    )
+                }
+        }
+    }
+
     private fun handleCopyPasswordClick(
         action: ListingItemOverflowAction.VaultAction.CopyPasswordClick,
     ) {
@@ -1339,7 +1410,9 @@ class VaultItemListingViewModel @Inject constructor(
                     CipherType.CARD -> VaultItemCipherType.CARD
                     CipherType.IDENTITY -> VaultItemCipherType.IDENTITY
                     CipherType.SSH_KEY -> VaultItemCipherType.SSH_KEY
-                    CipherType.BANK_ACCOUNT -> TODO("PM-32810: Add Bank Account Type")
+                    CipherType.BANK_ACCOUNT -> VaultItemCipherType.BANK_ACCOUNT
+                    CipherType.DRIVERS_LICENSE -> VaultItemCipherType.DRIVERS_LICENSE
+                    CipherType.PASSPORT -> VaultItemCipherType.PASSPORT
                 },
             ),
         )
@@ -1361,7 +1434,9 @@ class VaultItemListingViewModel @Inject constructor(
                     CipherType.CARD -> VaultItemCipherType.CARD
                     CipherType.IDENTITY -> VaultItemCipherType.IDENTITY
                     CipherType.SSH_KEY -> VaultItemCipherType.SSH_KEY
-                    CipherType.BANK_ACCOUNT -> TODO("PM-32810: Add Bank Account Type")
+                    CipherType.BANK_ACCOUNT -> VaultItemCipherType.BANK_ACCOUNT
+                    CipherType.DRIVERS_LICENSE -> VaultItemCipherType.DRIVERS_LICENSE
+                    CipherType.PASSPORT -> VaultItemCipherType.PASSPORT
                 },
             ),
         )
@@ -1529,6 +1604,7 @@ class VaultItemListingViewModel @Inject constructor(
         )
     }
 
+    @Suppress("LongMethod")
     private fun handleOverflowOptionClick(action: VaultItemListingsAction.OverflowOptionClick) {
         when (val overflowAction = action.action) {
             is ListingItemOverflowAction.SendAction.CopyUrlClick -> {
@@ -1561,6 +1637,22 @@ class VaultItemListingViewModel @Inject constructor(
 
             is ListingItemOverflowAction.VaultAction.CopyNumberClick -> {
                 handleCopyNumberClick(overflowAction)
+            }
+
+            is ListingItemOverflowAction.VaultAction.CopyAccountNumberClick -> {
+                handleCopyAccountNumberClick(overflowAction)
+            }
+
+            is ListingItemOverflowAction.VaultAction.CopyRoutingNumberClick -> {
+                handleCopyRoutingNumberClick(overflowAction)
+            }
+
+            is ListingItemOverflowAction.VaultAction.CopyLicenseNumberClick -> {
+                handleCopyLicenseNumberClick(overflowAction)
+            }
+
+            is ListingItemOverflowAction.VaultAction.CopyPassportNumberClick -> {
+                handleCopyPassportNumberClick(overflowAction)
             }
 
             is ListingItemOverflowAction.VaultAction.CopyPasswordClick -> {
@@ -2841,7 +2933,7 @@ class VaultItemListingViewModel @Inject constructor(
 data class VaultItemListingState(
     val itemListingType: ItemListingType,
     val activeAccountSummary: AccountSummary,
-    val accountSummaries: List<AccountSummary>,
+    val accountSummaries: ImmutableList<AccountSummary>,
     val viewState: ViewState,
     val vaultFilterType: VaultFilterType,
     val baseWebSendUrl: String,
@@ -2884,6 +2976,9 @@ data class VaultItemListingState(
             ItemListingType.Vault.Login,
             ItemListingType.Vault.SecureNote,
             ItemListingType.Vault.SshKey,
+            ItemListingType.Vault.BankAccount,
+            ItemListingType.Vault.License,
+            ItemListingType.Vault.Passport,
             ItemListingType.Vault.Trash,
             ItemListingType.Send.SendFile,
             ItemListingType.Send.SendText,
@@ -2972,7 +3067,10 @@ data class VaultItemListingState(
      * Whether the search icon should be shown.
      */
     val shouldShowSearchIcon: Boolean
-        get() = viewState is ViewState.Content
+        get() = viewState is ViewState.Content ||
+            isAutofill ||
+            isTotp ||
+            isCredentialManagerCreation
 
     /**
      * Whether the overflow menu should be shown.
@@ -3111,6 +3209,13 @@ data class VaultItemListingState(
          */
         @Parcelize
         data object ArchiveRequiresPremium : DialogState()
+
+        /**
+         * Displays a dialog to the user indicating that creating a File-type Send
+         * requires a Premium account.
+         */
+        @Parcelize
+        data object FileTypeRequiresPremium : DialogState()
     }
 
     /**
@@ -3324,6 +3429,30 @@ data class VaultItemListingState(
             data object SshKey : Vault() {
                 override val titleText: Text get() = BitwardenString.ssh_keys.asText()
                 override val hasFab: Boolean get() = false
+            }
+
+            /**
+             * A Bank Account item listing.
+             */
+            data object BankAccount : Vault() {
+                override val titleText: Text get() = BitwardenString.bank_accounts.asText()
+                override val hasFab: Boolean get() = true
+            }
+
+            /**
+             * A License item listing.
+             */
+            data object License : Vault() {
+                override val titleText: Text get() = BitwardenString.licenses.asText()
+                override val hasFab: Boolean get() = true
+            }
+
+            /**
+             * A Passport item listing.
+             */
+            data object Passport : Vault() {
+                override val titleText: Text get() = BitwardenString.passports.asText()
+                override val hasFab: Boolean get() = true
             }
 
             /**
@@ -3953,7 +4082,7 @@ sealed class VaultItemListingsAction {
          */
         data class SnackbarDataReceived(
             val data: BitwardenSnackbarData,
-        ) : Internal(), BackgroundEvent
+        ) : Internal()
 
         /**
          * Indicates that an error occurred while decrypting a cipher.

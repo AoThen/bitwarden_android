@@ -2,10 +2,11 @@ package com.x8bit.bitwarden.data.platform.repository
 
 import android.view.autofill.AutofillManager
 import com.bitwarden.authenticatorbridge.util.generateSecretKey
+import com.bitwarden.core.data.manager.BuildInfoManager
 import com.bitwarden.core.data.manager.dispatcher.DispatcherManager
 import com.bitwarden.data.manager.flightrecorder.FlightRecorderManager
-import com.bitwarden.network.model.PolicyTypeJson
-import com.bitwarden.network.model.SyncResponseJson
+import com.bitwarden.policies.PolicyType
+import com.bitwarden.policies.PolicyView
 import com.bitwarden.ui.platform.feature.settings.appearance.model.AppTheme
 import com.x8bit.bitwarden.BuildConfig
 import com.x8bit.bitwarden.data.auth.datasource.disk.AuthDiskSource
@@ -46,11 +47,12 @@ private val DEFAULT_IS_SCREEN_CAPTURE_ALLOWED = BuildConfig.DEBUG
 /**
  * Primary implementation of [SettingsRepository].
  */
-@Suppress("TooManyFunctions", "LongParameterList")
+@Suppress("LargeClass", "LongParameterList", "TooManyFunctions")
 class SettingsRepositoryImpl(
     private val autofillManager: AutofillManager,
     private val autofillEnabledManager: AutofillEnabledManager,
     private val authDiskSource: AuthDiskSource,
+    private val buildInfoManager: BuildInfoManager,
     private val settingsDiskSource: SettingsDiskSource,
     private val vaultSdkSource: VaultSdkSource,
     flightRecorderManager: FlightRecorderManager,
@@ -314,6 +316,18 @@ class SettingsRepositoryImpl(
             )
         }
 
+    override var isFillAssistEnabled: Boolean
+        get() = activeUserId
+            ?.let { settingsDiskSource.getFillAssistEnabled(userId = it) }
+            ?: false
+        set(value) {
+            val userId = activeUserId ?: return
+            settingsDiskSource.storeFillAssistEnabled(
+                userId = userId,
+                isFillAssistEnabled = value,
+            )
+        }
+
     override var isAutoCopyTotpDisabled: Boolean
         get() = activeUserId
             ?.let { settingsDiskSource.getAutoCopyTotpDisabled(userId = it) }
@@ -372,11 +386,26 @@ class SettingsRepositoryImpl(
                 initialValue = isScreenCaptureAllowed,
             )
 
+    override val hasShownAccessibilityDisclaimerFlow: StateFlow<Boolean>
+        get() = settingsDiskSource
+            .hasShownAccessibilityDisclaimerFlow
+            .map { buildInfoManager.isFdroid || it ?: false }
+            .stateIn(
+                scope = unconfinedScope,
+                started = SharingStarted.Lazily,
+                initialValue = buildInfoManager.isFdroid ||
+                    settingsDiskSource.hasShownAccessibilityDisclaimer ?: false,
+            )
+
     init {
         policyManager
-            .getActivePoliciesFlow(type = PolicyTypeJson.MAXIMUM_VAULT_TIMEOUT)
+            .getActivePoliciesFlow(type = PolicyType.MAXIMUM_VAULT_TIMEOUT)
             .onEach { updateVaultUnlockSettingsIfNecessary(it) }
             .launchIn(unconfinedScope)
+    }
+
+    override fun accessibilityDisclaimerHasBeenShown() {
+        settingsDiskSource.hasShownAccessibilityDisclaimer = true
     }
 
     override fun disableAutofill() {
@@ -676,7 +705,7 @@ class SettingsRepositoryImpl(
      * settings to determine whether to update the user's settings.
      */
     private fun updateVaultUnlockSettingsIfNecessary(
-        policies: List<SyncResponseJson.Policy>,
+        policies: List<PolicyView>,
     ) {
         // The vault timeout policy can only be implemented in organizations that have
         // the single organization policy, meaning that if this is enabled, the user is

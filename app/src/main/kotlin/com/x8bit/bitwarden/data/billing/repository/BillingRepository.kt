@@ -4,6 +4,7 @@ import com.x8bit.bitwarden.data.billing.repository.model.CheckoutSessionResult
 import com.x8bit.bitwarden.data.billing.repository.model.CustomerPortalResult
 import com.x8bit.bitwarden.data.billing.repository.model.PremiumPlanPricingResult
 import com.x8bit.bitwarden.data.billing.repository.model.SubscriptionResult
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -32,7 +33,15 @@ interface BillingRepository {
     suspend fun getPremiumPlanPricing(): PremiumPlanPricingResult
 
     /**
-     * Fetches the current user's premium subscription details.
+     * Fetches the current user's premium subscription details. The endpoint 404s when the
+     * user has no `GatewaySubscriptionId` (free user); callers receive
+     * [SubscriptionResult.NotFound] in that case instead of [SubscriptionResult.Error].
      */
     suspend fun getSubscription(): SubscriptionResult
+
+    /**
+     * A flow that emits the result of every [getSubscription] call. New collectors receive nothing
+     * until the next [getSubscription] invocation rather than the most recent result.
+     */
+    fun getSubscriptionFlow(): Flow<SubscriptionResult>
 }
