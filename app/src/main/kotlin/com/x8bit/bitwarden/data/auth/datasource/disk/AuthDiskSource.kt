@@ -2,6 +2,7 @@ package com.x8bit.bitwarden.data.auth.datasource.disk
 
 import com.bitwarden.core.WrappedAccountCryptographicState
 import com.bitwarden.network.model.SyncResponseJson
+import com.bitwarden.network.model.V2UpgradeTokenJson
 import com.bitwarden.network.provider.AppIdProvider
 import com.x8bit.bitwarden.data.auth.datasource.disk.model.AccountTokensJson
 import com.x8bit.bitwarden.data.auth.datasource.disk.model.OnboardingStatus
@@ -138,6 +139,16 @@ interface AuthDiskSource : AppIdProvider {
     )
 
     /**
+     * Returns the id of the user key for the given [userId].
+     */
+    fun getUserKeyId(userId: String): String?
+
+    /**
+     * Stores the id of the user key for the given [userId].
+     */
+    fun storeUserKeyId(userId: String, userKeyId: String?)
+
+    /**
      * Retrieves a user auto-unlock key for the given [userId].
      */
     fun getUserAutoUnlockKey(userId: String): String?
@@ -199,15 +210,10 @@ interface AuthDiskSource : AppIdProvider {
      * Retrieves a pin-protected user key for the given [userId].
      */
     @Deprecated(
-        message = "Use getPinProtectedUserKeyEnvelope instead.",
-        replaceWith = ReplaceWith("getPinProtectedUserKeyEnvelope"),
+        message = "Use getEphemeralPinProtectedUserKeyEnvelope and " +
+            "getPersistentPinProtectedUserKeyEnvelope instead.",
     )
     fun getPinProtectedUserKey(userId: String): String?
-
-    /**
-     * Retrieves a pin-protected user key envelope for the given [userId].
-     */
-    fun getPinProtectedUserKeyEnvelope(userId: String): String?
 
     /**
      * Stores a pin-protected user key for the given [userId].
@@ -216,8 +222,8 @@ interface AuthDiskSource : AppIdProvider {
      * [getPinProtectedUserKey] during the current app session.
      */
     @Deprecated(
-        message = "Use storePinProtectedUserKeyEnvelope instead.",
-        replaceWith = ReplaceWith("storePinProtectedUserKeyEnvelope"),
+        message = "Use storeEphemeralPinProtectedUserKeyEnvelope and " +
+            "storePersistentPinProtectedUserKeyEnvelope instead.",
     )
     fun storePinProtectedUserKey(
         userId: String,
@@ -226,30 +232,61 @@ interface AuthDiskSource : AppIdProvider {
     )
 
     /**
-     * Stores a pin-protected user key envelope for the given [userId].
-     *
-     * When [inMemoryOnly] is `true`, the value will only be available via a call to
-     * [getPinProtectedUserKeyEnvelope] during the current app session.
-     */
-    fun storePinProtectedUserKeyEnvelope(
-        userId: String,
-        pinProtectedUserKeyEnvelope: String?,
-        inMemoryOnly: Boolean = false,
-    )
-
-    /**
      * Retrieves a flow for the pin-protected user key for the given [userId].
      */
     @Deprecated(
-        message = "Use getPinProtectedUserKeyEnvelopeFlow instead.",
-        replaceWith = ReplaceWith("getPinProtectedUserKeyEnvelopeFlow"),
+        message = "Use getEphemeralPinProtectedUserKeyEnvelopeFlow and " +
+            "getPersistentPinProtectedUserKeyEnvelopeFlow instead.",
     )
     fun getPinProtectedUserKeyFlow(userId: String): Flow<String?>
 
     /**
-     * Retrieves a flow for the pin-protected user key envelope for the given [userId].
+     * Retrieves the pin-protected user key envelope for the given [userId].
+     *
+     * This will return either the in-memory or persistent pin-protected user key, whichever is
+     * available.
      */
-    fun getPinProtectedUserKeyEnvelopeFlow(userId: String): Flow<String?>
+    fun getPinProtectedUserKeyEnvelope(userId: String): String?
+
+    /**
+     * Retrieves the ephemeral pin-protected user key envelope for the given [userId].
+     *
+     * This will always ignore the persistent pin-protected user key.
+     */
+    fun getEphemeralPinProtectedUserKeyEnvelope(userId: String): String?
+
+    /**
+     * Retrieves the persistent pin-protected user key envelope for the given [userId].
+     *
+     * This will always ignore the ephemeral pin-protected user key.
+     */
+    fun getPersistentPinProtectedUserKeyEnvelope(userId: String): String?
+
+    /**
+     * Stores an ephemeral pin-protected user key envelope for the given [userId].
+     */
+    fun storeEphemeralPinProtectedUserKeyEnvelope(
+        userId: String,
+        pinProtectedUserKeyEnvelope: String?,
+    )
+
+    /**
+     * Stores a persistent pin-protected user key envelope for the given [userId].
+     */
+    fun storePersistentPinProtectedUserKeyEnvelope(
+        userId: String,
+        pinProtectedUserKeyEnvelope: String?,
+    )
+
+    /**
+     * Retrieves a flow for the ephemeral pin-protected user key envelope for the given [userId].
+     */
+    fun getEphemeralPinProtectedUserKeyEnvelopeFlow(userId: String): Flow<String?>
+
+    /**
+     * Retrieves a flow for the persistent pin-protected user key envelope for the given [userId].
+     */
+    fun getPersistentPinProtectedUserKeyEnvelopeFlow(userId: String): Flow<String?>
 
     /**
      * Gets a two-factor auth token using a user's [email].
@@ -384,4 +421,33 @@ interface AuthDiskSource : AppIdProvider {
      * Stores the last lock timestamp for the given [userId].
      */
     fun storeLastLockTimestamp(userId: String, lastLockTimestamp: Instant?)
+
+    /**
+     * Gets the v2 upgrade token for the given [userId].
+     */
+    fun getV2UpgradeToken(userId: String): V2UpgradeTokenJson?
+
+    /**
+     * Stores the v2 upgrade token for the given [userId].
+     */
+    fun storeV2UpgradeToken(userId: String, v2UpgradeToken: V2UpgradeTokenJson?)
+
+    /**
+     * Gets the start of the v2 encrypted migrations grace period for the given [userId].
+     *
+     * This value is retained across logout and lock and is only removed when explicitly stored as
+     * `null`.
+     */
+    fun getV2EncryptedMigrationsGracePeriodStart(userId: String): Instant?
+
+    /**
+     * Stores the start of the v2 encrypted migrations grace period for the given [userId].
+     *
+     * This value is retained across logout and lock and is only removed when explicitly stored as
+     * `null`.
+     */
+    fun storeV2EncryptedMigrationsGracePeriodStart(
+        userId: String,
+        gracePeriodStart: Instant?,
+    )
 }

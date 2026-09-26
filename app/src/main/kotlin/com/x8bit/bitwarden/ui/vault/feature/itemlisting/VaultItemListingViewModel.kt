@@ -126,6 +126,7 @@ import kotlinx.parcelize.Parcelize
 import timber.log.Timber
 import java.time.Clock
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Manages [VaultItemListingState], handles [VaultItemListingsAction],
@@ -175,8 +176,8 @@ class VaultItemListingViewModel @Inject constructor(
             accountSummaries = accountSummaries,
             viewState = VaultItemListingState.ViewState.Loading,
             vaultFilterType = vaultRepository.vaultFilterType,
-            baseWebSendUrl = environmentRepository.environment.environmentUrlData.baseWebSendUrl,
-            baseIconUrl = environmentRepository.environment.environmentUrlData.baseIconUrl,
+            baseWebSendUrl = environmentRepository.environment.baseWebSendUrl,
+            baseIconUrl = environmentRepository.environment.baseIconUrl,
             isIconLoadingDisabled = settingsRepository.isIconLoadingDisabled,
             isPullToRefreshSettingEnabled = settingsRepository.getPullToRefreshEnabledFlow().value,
             dialogState = providerCreateCredentialRequest
@@ -184,9 +185,7 @@ class VaultItemListingViewModel @Inject constructor(
                 ?.let {
                     VaultItemListingState.DialogState.Loading(BitwardenString.loading.asText())
                 },
-            policyDisablesSend = policyManager
-                .getActivePolicies(type = PolicyType.DISABLE_SEND)
-                .any(),
+            policyDisablesSend = policyManager.getEffectiveSendPolicy().disableSend,
             restrictItemTypesPolicyOrgIds = persistentListOf(),
             autofillSelectionData = specialCircumstance?.toAutofillSelectionDataOrNull(),
             hasMasterPassword = userState.activeAccount.hasMasterPassword,
@@ -214,8 +213,8 @@ class VaultItemListingViewModel @Inject constructor(
             .launchIn(viewModelScope)
 
         policyManager
-            .getActivePoliciesFlow(type = PolicyType.DISABLE_SEND)
-            .map { VaultItemListingsAction.Internal.PolicyUpdateReceive(it.any()) }
+            .getEffectiveSendPolicyFlow()
+            .map { VaultItemListingsAction.Internal.PolicyUpdateReceive(it.disableSend) }
             .onEach(::sendAction)
             .launchIn(viewModelScope)
 
@@ -223,6 +222,12 @@ class VaultItemListingViewModel @Inject constructor(
             .getActivePoliciesFlow(type = PolicyType.RESTRICTED_ITEM_TYPES)
             .map { policies -> policies.map { it.organizationId } }
             .map { VaultItemListingsAction.Internal.RestrictItemTypesPolicyUpdateReceive(it) }
+            .onEach(::sendAction)
+            .launchIn(viewModelScope)
+
+        featureFlagManager
+            .getFeatureFlagFlow(FlagKey.Vfo1Foundation)
+            .map { VaultItemListingsAction.Internal.Vfo1FoundationFlagUpdateReceive(it) }
             .onEach(::sendAction)
             .launchIn(viewModelScope)
 
@@ -237,6 +242,7 @@ class VaultItemListingViewModel @Inject constructor(
                 SnackbarRelay.CIPHER_DELETED_SOFT,
                 SnackbarRelay.CIPHER_RESTORED,
                 SnackbarRelay.CIPHER_UPDATED,
+                SnackbarRelay.FOLDER_CREATED,
                 SnackbarRelay.SEND_DELETED,
                 SnackbarRelay.SEND_UPDATED,
             )
@@ -395,11 +401,10 @@ class VaultItemListingViewModel @Inject constructor(
         vaultRepository.sync(forced = true)
     }
 
-    @Suppress("MagicNumber")
     private fun handleRefreshPull() {
         mutableStateFlow.update { it.copy(isRefreshing = true) }
         viewModelScope.launch {
-            delay(250)
+            delay(250.milliseconds)
             if (networkConnectionManager.isNetworkConnected) {
                 vaultRepository.sync(forced = false)
             } else {
@@ -670,10 +675,7 @@ class VaultItemListingViewModel @Inject constructor(
         if (premiumStateManager.isInAppUpgradeAvailable()) {
             sendEvent(VaultItemListingEvent.NavigateToPlanModal)
         } else {
-            val baseUrl = environmentRepository
-                .environment
-                .environmentUrlData
-                .baseWebVaultUrlOrDefault
+            val baseUrl = environmentRepository.environment.baseWebVaultUrlOrDefault
             val url = "$baseUrl/#/settings/subscription/premium?callToAction=upgradeToPremium"
             sendEvent(VaultItemListingEvent.NavigateToUrl(url = url))
         }
@@ -1765,6 +1767,10 @@ class VaultItemListingViewModel @Inject constructor(
                 handleRestrictItemTypesPolicyUpdateReceive(action)
             }
 
+            is VaultItemListingsAction.Internal.Vfo1FoundationFlagUpdateReceive -> {
+                handleVfo1FoundationFlagUpdateReceive(action)
+            }
+
             is VaultItemListingsAction.Internal.SnackbarDataReceived -> {
                 handleSnackbarDataReceived(action)
             }
@@ -1877,6 +1883,16 @@ class VaultItemListingViewModel @Inject constructor(
                     .toImmutableList(),
             )
         }
+
+        vaultRepository.vaultDataStateFlow.value.data?.let { vaultData ->
+            updateStateWithVaultData(vaultData, clearDialogState = false)
+        }
+    }
+
+    private fun handleVfo1FoundationFlagUpdateReceive(
+        action: VaultItemListingsAction.Internal.Vfo1FoundationFlagUpdateReceive,
+    ) {
+        mutableStateFlow.update { it.copy(isVfo1FoundationEnabled = action.isEnabled) }
 
         vaultRepository.vaultDataStateFlow.value.data?.let { vaultData ->
             updateStateWithVaultData(vaultData, clearDialogState = false)
@@ -2746,6 +2762,7 @@ class VaultItemListingViewModel @Inject constructor(
                             totpData = state.totpData,
                             isPremiumUser = state.isPremium,
                             restrictItemTypesPolicyOrgIds = state.restrictItemTypesPolicyOrgIds,
+                            isVfo1FoundationEnabled = state.isVfo1FoundationEnabled,
                         )
                     }
 
@@ -2845,6 +2862,20 @@ class VaultItemListingViewModel @Inject constructor(
                                 cipherListViews = vaultData.decryptCipherListResult.successes,
                                 matchUri = matchUri,
                             ),
+                            failures = emptyList(),
+                        ),
+                    )
+                }
+            }
+
+            AutofillSelectionData.Type.IDENTITY -> {
+                this.map { vaultData ->
+                    vaultData.copy(
+                        decryptCipherListResult = vaultData.decryptCipherListResult.copy(
+                            successes = vaultData
+                                .decryptCipherListResult
+                                .successes
+                                .filter { it.type is CipherListViewType.Identity },
                             failures = emptyList(),
                         ),
                     )
@@ -2953,6 +2984,7 @@ data class VaultItemListingState(
     val hasMasterPassword: Boolean,
     val isPremium: Boolean,
     val isRefreshing: Boolean,
+    val isVfo1FoundationEnabled: Boolean = false,
 ) {
     /**
      * Indicates what action card to display.
@@ -3021,19 +3053,23 @@ data class VaultItemListingState(
     val appBarTitle: Text
         get() = autofillSelectionData
             ?.let { data ->
-                data.uri
-                    ?.toHostOrPathOrNull()
-                    ?.let {
-                        when (data.type) {
-                            AutofillSelectionData.Type.CARD -> {
-                                BitwardenString.select_a_card_for_x.asText(it)
-                            }
-
-                            AutofillSelectionData.Type.LOGIN -> {
-                                BitwardenString.items_for_uri.asText(it)
-                            }
-                        }
+                when (data.type) {
+                    AutofillSelectionData.Type.IDENTITY -> {
+                        BitwardenString.choose_an_identity.asText()
                     }
+
+                    AutofillSelectionData.Type.CARD -> {
+                        data.uri
+                            ?.toHostOrPathOrNull()
+                            ?.let { BitwardenString.select_a_card_for_x.asText(it) }
+                    }
+
+                    AutofillSelectionData.Type.LOGIN -> {
+                        data.uri
+                            ?.toHostOrPathOrNull()
+                            ?.let { BitwardenString.items_for_uri.asText(it) }
+                    }
+                }
             }
             ?: createCredentialRequest
                 ?.relyingPartyIdOrNull
@@ -4026,6 +4062,13 @@ sealed class VaultItemListingsAction {
          */
         data class RestrictItemTypesPolicyUpdateReceive(
             val restrictItemTypesPolicyOrdIds: List<String>,
+        ) : Internal()
+
+        /**
+         * Indicates that an update for the `vfo1-foundation` feature flag has been received.
+         */
+        data class Vfo1FoundationFlagUpdateReceive(
+            val isEnabled: Boolean,
         ) : Internal()
 
         /**

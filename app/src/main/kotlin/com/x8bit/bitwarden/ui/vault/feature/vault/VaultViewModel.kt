@@ -48,6 +48,8 @@ import com.x8bit.bitwarden.data.platform.manager.event.OrganizationEventManager
 import com.x8bit.bitwarden.data.platform.manager.model.OrganizationEvent
 import com.x8bit.bitwarden.data.platform.manager.model.SpecialCircumstance
 import com.x8bit.bitwarden.data.platform.manager.network.NetworkConnectionManager
+import com.x8bit.bitwarden.data.platform.manager.policy.UserNotificationPolicyManager
+import com.x8bit.bitwarden.data.platform.manager.policy.model.UserNotificationPolicyData
 import com.x8bit.bitwarden.data.platform.repository.EnvironmentRepository
 import com.x8bit.bitwarden.data.platform.repository.SettingsRepository
 import com.x8bit.bitwarden.data.platform.util.userFriendlyMessage
@@ -61,6 +63,7 @@ import com.x8bit.bitwarden.ui.platform.model.SnackbarRelay
 import com.x8bit.bitwarden.ui.vault.components.model.CreateVaultItemType
 import com.x8bit.bitwarden.ui.vault.components.util.toVaultItemCipherTypeOrNull
 import com.x8bit.bitwarden.ui.vault.feature.itemlisting.model.ListingItemOverflowAction
+import com.x8bit.bitwarden.ui.vault.feature.vault.VaultState.PolicyBanner
 import com.x8bit.bitwarden.ui.vault.feature.vault.model.VaultFilterData
 import com.x8bit.bitwarden.ui.vault.feature.vault.model.VaultFilterType
 import com.x8bit.bitwarden.ui.vault.feature.vault.util.toAccountSummaries
@@ -121,6 +124,7 @@ class VaultViewModel @Inject constructor(
     private val networkConnectionManager: NetworkConnectionManager,
     private val browserAutofillDialogManager: BrowserAutofillDialogManager,
     private val credentialExchangeRegistryManager: CredentialExchangeRegistryManager,
+    private val userNotificationPolicyManager: UserNotificationPolicyManager,
     buildInfoManager: BuildInfoManager,
     featureFlagManager: FeatureFlagManager,
     snackbarRelayManager: SnackbarRelayManager<SnackbarRelay>,
@@ -151,7 +155,7 @@ class VaultViewModel @Inject constructor(
             isIconLoadingDisabled = settingsRepository.isIconLoadingDisabled,
             isPremium = activeAccount.isPremium,
             isPullToRefreshSettingEnabled = settingsRepository.getPullToRefreshEnabledFlow().value,
-            baseIconUrl = activeAccount.environment.environmentUrlData.baseIconUrl,
+            baseIconUrl = activeAccount.environment.baseIconUrl,
             hasMasterPassword = activeAccount.hasMasterPassword,
             isRefreshing = false,
             showImportActionCard = false,
@@ -165,6 +169,14 @@ class VaultViewModel @Inject constructor(
                 .getIntroducingArchiveActionCardDismissedFlow()
                 .value,
             validTotpIds = persistentSetOf(),
+            policyBanner = userNotificationPolicyManager.displayData?.let {
+                PolicyBanner(
+                    organizationId = it.organizationId,
+                    header = it.headerText?.asText(),
+                    message = it.descriptionText.asText(),
+                    buttonText = it.buttonText?.asText(),
+                )
+            },
         )
     },
 ) {
@@ -241,7 +253,6 @@ class VaultViewModel @Inject constructor(
             snackbarRelayManager.getSnackbarDataFlow(
                 SnackbarRelay.CIPHER_ARCHIVED,
                 SnackbarRelay.CIPHER_ARCHIVED_VIEW,
-                SnackbarRelay.CIPHER_CREATED,
                 SnackbarRelay.CIPHER_DELETED,
                 SnackbarRelay.CIPHER_DELETED_SOFT,
                 SnackbarRelay.CIPHER_RESTORED,
@@ -265,6 +276,12 @@ class VaultViewModel @Inject constructor(
         settingsRepository
             .getIntroducingArchiveActionCardDismissedFlow()
             .map { VaultAction.Internal.IntroducingArchiveActionCardDismissedFlowReceive(it) }
+            .onEach(::sendAction)
+            .launchIn(viewModelScope)
+
+        userNotificationPolicyManager
+            .displayDataFlow
+            .map { VaultAction.Internal.UserNotificationPolicyReceive(policyInfo = it) }
             .onEach(::sendAction)
             .launchIn(viewModelScope)
 
@@ -295,6 +312,11 @@ class VaultViewModel @Inject constructor(
 
         featureFlagManager.getFeatureFlagFlow(FlagKey.NewItemTypes)
             .map { VaultAction.Internal.NewItemTypesFlagUpdateReceive(isEnabled = it) }
+            .onEach(::sendAction)
+            .launchIn(viewModelScope)
+
+        featureFlagManager.getFeatureFlagFlow(FlagKey.Vfo1Foundation)
+            .map { VaultAction.Internal.Vfo1FoundationFlagUpdateReceive(isEnabled = it) }
             .onEach(::sendAction)
             .launchIn(viewModelScope)
 
@@ -429,10 +451,7 @@ class VaultViewModel @Inject constructor(
         if (premiumStateManager.isInAppUpgradeAvailable()) {
             sendEvent(VaultEvent.NavigateToUpgradePremium)
         } else {
-            val baseUrl = environmentRepository
-                .environment
-                .environmentUrlData
-                .baseWebVaultUrlOrDefault
+            val baseUrl = environmentRepository.environment.baseWebVaultUrlOrDefault
             val url = "$baseUrl/#/settings/subscription/premium?callToAction=upgradeToPremium"
             sendEvent(VaultEvent.NavigateToUrl(url = url))
         }
@@ -461,11 +480,15 @@ class VaultViewModel @Inject constructor(
                 if (!state.showImportActionCard) return
                 firstTimeActionManager.storeShowImportLogins(showImportLogins = false)
             }
+
+            is VaultState.ActionCardState.VaultPolicyBanner -> {
+                userNotificationPolicyManager.dismissBanner()
+            }
         }
     }
 
     private fun handleActionCardClick(action: VaultAction.ActionCardClick) {
-        when (action.actionCard) {
+        when (val actionCard = action.actionCard) {
             VaultState.ActionCardState.UpgradedToPremium -> {
                 premiumStateManager.dismissUpgradedToPremiumCard()
                 sendEvent(VaultEvent.NavigateToUrl(url = UPGRADED_TO_PREMIUM_LEARN_MORE_URL))
@@ -486,6 +509,15 @@ class VaultViewModel @Inject constructor(
 
             VaultState.ActionCardState.ImportItems -> {
                 sendEvent(VaultEvent.NavigateToImportLogins)
+            }
+
+            is VaultState.ActionCardState.VaultPolicyBanner -> {
+                organizationEventManager.trackEvent(
+                    event = OrganizationEvent.OrganizationUserNotificationBannerActionClicked(
+                        organizationId = actionCard.organizationId,
+                    ),
+                )
+                userNotificationPolicyManager.dismissBanner()
             }
         }
     }
@@ -1085,6 +1117,7 @@ class VaultViewModel @Inject constructor(
         }
     }
 
+    @Suppress("LongMethod")
     private fun handleInternalAction(action: VaultAction.Internal) {
         when (action) {
             is VaultAction.Internal.GenerateTotpResultReceive -> {
@@ -1139,6 +1172,10 @@ class VaultViewModel @Inject constructor(
                 handleNewItemTypesFlagUpdateReceive(action)
             }
 
+            is VaultAction.Internal.Vfo1FoundationFlagUpdateReceive -> {
+                handleVfo1FoundationFlagUpdateReceive(action)
+            }
+
             is VaultAction.Internal.ArchiveCipherReceive -> handleArchiveCipherReceive(action)
             is VaultAction.Internal.UnarchiveCipherReceive -> handleUnarchiveCipherReceive(action)
             is VaultAction.Internal.IntroducingArchiveActionCardDismissedFlowReceive -> {
@@ -1151,6 +1188,10 @@ class VaultViewModel @Inject constructor(
 
             is VaultAction.Internal.UpgradedToPremiumCardEligibilityReceive -> {
                 handleUpgradedToPremiumCardEligibilityReceive(action)
+            }
+
+            is VaultAction.Internal.UserNotificationPolicyReceive -> {
+                handleUserNotificationPolicyReceive(action)
             }
         }
     }
@@ -1214,6 +1255,22 @@ class VaultViewModel @Inject constructor(
     ) {
         mutableStateFlow.update {
             it.copy(isNewItemTypesEnabled = action.isEnabled)
+        }
+
+        vaultRepository.vaultDataStateFlow.value.data?.let { vaultData ->
+            updateVaultState(
+                vaultData = vaultData,
+                dialog = state.dialog,
+                validTotpIds = state.validTotpIds,
+            )
+        }
+    }
+
+    private fun handleVfo1FoundationFlagUpdateReceive(
+        action: VaultAction.Internal.Vfo1FoundationFlagUpdateReceive,
+    ) {
+        mutableStateFlow.update {
+            it.copy(isVfo1FoundationEnabled = action.isEnabled)
         }
 
         vaultRepository.vaultDataStateFlow.value.data?.let { vaultData ->
@@ -1290,6 +1347,23 @@ class VaultViewModel @Inject constructor(
     ) {
         mutableStateFlow.update {
             it.copy(isUpgradedToPremiumCardEligible = action.isEligible)
+        }
+    }
+
+    private fun handleUserNotificationPolicyReceive(
+        action: VaultAction.Internal.UserNotificationPolicyReceive,
+    ) {
+        mutableStateFlow.update {
+            it.copy(
+                policyBanner = action.policyInfo?.let { policy ->
+                    PolicyBanner(
+                        organizationId = policy.organizationId,
+                        header = policy.headerText?.asText(),
+                        message = policy.descriptionText.asText(),
+                        buttonText = policy.buttonText?.asText(),
+                    )
+                },
+            )
         }
     }
 
@@ -1468,6 +1542,7 @@ class VaultViewModel @Inject constructor(
                             restrictItemTypesPolicyOrgIds = state.restrictItemTypesPolicyOrgIds,
                             validTotpIds = validTotpIds,
                             isNewItemTypesEnabled = state.isNewItemTypesEnabled,
+                            isVfo1FoundationEnabled = state.isVfo1FoundationEnabled,
                         ),
                         dialog = VaultState.DialogState.SyncError(
                             title = BitwardenString.vault_sync_unsuccessful.asText(),
@@ -1556,6 +1631,7 @@ class VaultViewModel @Inject constructor(
                     restrictItemTypesPolicyOrgIds = state.restrictItemTypesPolicyOrgIds,
                     validTotpIds = validTotpIds,
                     isNewItemTypesEnabled = state.isNewItemTypesEnabled,
+                    isVfo1FoundationEnabled = state.isVfo1FoundationEnabled,
                 ),
                 dialog = dialog,
                 isRefreshing = false,
@@ -1613,6 +1689,7 @@ class VaultViewModel @Inject constructor(
                     restrictItemTypesPolicyOrgIds = state.restrictItemTypesPolicyOrgIds,
                     validTotpIds = validTotpIds,
                     isNewItemTypesEnabled = state.isNewItemTypesEnabled,
+                    isVfo1FoundationEnabled = state.isVfo1FoundationEnabled,
                 ),
                 validTotpIds = validTotpIds.toImmutableSet(),
             )
@@ -1779,6 +1856,8 @@ data class VaultState(
     val isAwaitingKdfSync: Boolean = false,
     val validTotpIds: ImmutableSet<String>,
     val isNewItemTypesEnabled: Boolean = false,
+    val isVfo1FoundationEnabled: Boolean = false,
+    val policyBanner: PolicyBanner?,
 ) : Parcelable {
 
     /**
@@ -1787,8 +1866,17 @@ data class VaultState(
     val actionCard: ActionCardState?
         get() = when (viewState) {
             is ViewState.Content -> {
-                ActionCardState.UpgradedToPremium
-                    .takeIf { isUpgradedToPremiumCardEligible }
+                policyBanner
+                    ?.let {
+                        ActionCardState.VaultPolicyBanner(
+                            organizationId = it.organizationId,
+                            title = it.header,
+                            message = it.message,
+                            button = it.buttonText,
+                        )
+                    }
+                    ?: ActionCardState.UpgradedToPremium
+                        .takeIf { isUpgradedToPremiumCardEligible }
                     ?: ActionCardState.UpgradePremium.takeIf { premiumCard == PremiumCard.UPGRADE }
                     ?: ActionCardState.PremiumNeedsAttention.takeIf {
                         premiumCard == PremiumCard.NEEDS_ATTENTION
@@ -1799,7 +1887,16 @@ data class VaultState(
             }
 
             ViewState.NoItems -> {
-                ActionCardState.UpgradePremium.takeIf { premiumCard == PremiumCard.UPGRADE }
+                policyBanner
+                    ?.let {
+                        ActionCardState.VaultPolicyBanner(
+                            organizationId = it.organizationId,
+                            title = it.header,
+                            message = it.message,
+                            button = it.buttonText,
+                        )
+                    }
+                    ?: ActionCardState.UpgradePremium.takeIf { premiumCard == PremiumCard.UPGRADE }
                     ?: ActionCardState.PremiumNeedsAttention.takeIf {
                         premiumCard == PremiumCard.NEEDS_ATTENTION
                     }
@@ -2202,6 +2299,16 @@ data class VaultState(
      */
     sealed class ActionCardState {
         /**
+         * Indicates that the user has a Vault Policy Banner that need to be displayed.
+         */
+        data class VaultPolicyBanner(
+            val organizationId: String,
+            val title: Text?,
+            val message: Text,
+            val button: Text?,
+        ) : ActionCardState()
+
+        /**
          * Indicates that the user has been upgraded to Premium and should be congratulated with
          * a link to learn more about Premium features.
          */
@@ -2314,6 +2421,17 @@ data class VaultState(
             val message: Text,
         ) : DialogState()
     }
+
+    /**
+     * Represents a policy banner action card with the given [header], [message], and [buttonText].
+     */
+    @Parcelize
+    data class PolicyBanner(
+        val organizationId: String,
+        val header: Text?,
+        val message: Text,
+        val buttonText: Text?,
+    ) : Parcelable
 }
 
 /**
@@ -2674,6 +2792,13 @@ sealed class VaultAction {
     sealed class Internal : VaultAction() {
 
         /**
+         * Indicates that the user notification policy has changed.
+         */
+        data class UserNotificationPolicyReceive(
+            val policyInfo: UserNotificationPolicyData?,
+        ) : Internal()
+
+        /**
          * Indicates that the icon loading setting has been changed.
          */
         data class IconLoadingSettingReceive(
@@ -2774,6 +2899,13 @@ sealed class VaultAction {
          * Indicates that the New Item Types feature flag has been updated.
          */
         data class NewItemTypesFlagUpdateReceive(
+            val isEnabled: Boolean,
+        ) : Internal()
+
+        /**
+         * Indicates that the VFO-1 foundation feature flag has been updated.
+         */
+        data class Vfo1FoundationFlagUpdateReceive(
             val isEnabled: Boolean,
         ) : Internal()
 

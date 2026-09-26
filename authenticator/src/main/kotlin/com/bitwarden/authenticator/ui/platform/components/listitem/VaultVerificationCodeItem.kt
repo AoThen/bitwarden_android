@@ -16,8 +16,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -115,6 +117,7 @@ fun VaultVerificationCodeItem(
             .cardStyle(
                 cardStyle = cardStyle,
                 onClick = onItemClick,
+                role = Role.Button,
                 paddingStart = 16.dp,
                 paddingEnd = 4.dp,
             ),
@@ -170,7 +173,11 @@ fun VaultVerificationCodeItem(
                 text = authCode
                     .chunked(size = 3) { it.padEnd(length = 3, padChar = ' ') }
                     .joinToString(separator = " "),
-                style = BitwardenTheme.typography.sensitiveInfoSmall,
+                style = BitwardenTheme.typography.sensitiveInfoSmall.copy(
+                    // Force LTR text direction so TOTP digit groups
+                    // retain correct order in RTL locales
+                    textDirection = TextDirection.Ltr,
+                ),
                 color = BitwardenTheme.colorScheme.text.primary,
             )
 
@@ -193,7 +200,11 @@ fun VaultVerificationCodeItem(
                     text = code
                         .chunked(size = 3) { it.padEnd(length = 3, padChar = ' ') }
                         .joinToString(separator = " "),
-                    style = BitwardenTheme.typography.sensitiveInfoSmall,
+                    style = BitwardenTheme.typography.sensitiveInfoSmall.copy(
+                        // Force LTR text direction so TOTP digit groups
+                        // retain correct order in RTL locales
+                        textDirection = TextDirection.Ltr,
+                    ),
                     color = BitwardenTheme.colorScheme.text.secondary,
                 )
             }

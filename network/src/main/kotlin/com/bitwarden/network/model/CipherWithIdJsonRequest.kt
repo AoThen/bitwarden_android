@@ -69,8 +69,14 @@ data class CipherWithIdJsonRequest(
     @SerialName("key")
     val key: String?,
 
+    @SerialName("data")
+    val data: String?,
+
     @SerialName("encryptedFor")
     val encryptedFor: String?,
+
+    @SerialName("encryptedByKeyId")
+    val encryptedByKeyId: String?,
 )
 
 /**
@@ -96,5 +102,7 @@ fun CipherJsonRequest.toCipherWithIdJsonRequest(id: String): CipherWithIdJsonReq
         isFavorite = isFavorite,
         card = card,
         key = key,
+        data = data,
         encryptedFor = encryptedFor,
+        encryptedByKeyId = encryptedByKeyId,
     )

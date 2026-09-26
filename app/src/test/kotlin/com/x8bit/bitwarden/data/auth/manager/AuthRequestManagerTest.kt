@@ -2,6 +2,7 @@ package com.x8bit.bitwarden.data.auth.manager
 
 import app.cash.turbine.test
 import com.bitwarden.core.AuthRequestResponse
+import com.bitwarden.core.data.repository.util.bufferedMutableSharedFlow
 import com.bitwarden.core.data.util.asFailure
 import com.bitwarden.core.data.util.asSuccess
 import com.bitwarden.network.model.AuthRequestTypeJson
@@ -22,9 +23,12 @@ import com.x8bit.bitwarden.data.auth.manager.model.AuthRequestUpdatesResult
 import com.x8bit.bitwarden.data.auth.manager.model.AuthRequestsResult
 import com.x8bit.bitwarden.data.auth.manager.model.AuthRequestsUpdatesResult
 import com.x8bit.bitwarden.data.auth.manager.model.CreateAuthRequestResult
+import com.x8bit.bitwarden.data.platform.manager.PushManager
+import com.x8bit.bitwarden.data.platform.manager.model.PasswordlessRequestData
 import com.x8bit.bitwarden.data.vault.datasource.sdk.VaultSdkSource
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -35,6 +39,7 @@ import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import kotlin.time.Duration.Companion.milliseconds
 
 @Suppress("LargeClass")
 class AuthRequestManagerTest {
@@ -51,6 +56,11 @@ class AuthRequestManagerTest {
         } returns "AsymmetricEncString".asSuccess()
     }
     private val fakeAuthDiskSource = FakeAuthDiskSource()
+    private val mutablePasswordlessRequestFlow =
+        bufferedMutableSharedFlow<PasswordlessRequestData>()
+    private val pushManager: PushManager = mockk {
+        every { passwordlessRequestFlow } returns mutablePasswordlessRequestFlow
+    }
 
     private val repository: AuthRequestManager = AuthRequestManagerImpl(
         clock = fixedClock,
@@ -59,6 +69,7 @@ class AuthRequestManagerTest {
         authSdkSource = authSdkSource,
         vaultSdkSource = vaultSdkSource,
         authDiskSource = fakeAuthDiskSource,
+        pushManager = pushManager,
     )
 
     @Suppress("MaxLineLength")
@@ -509,8 +520,10 @@ class AuthRequestManagerTest {
 
             coVerify(exactly = 1) {
                 authRequestsService.getAuthRequests()
-                authSdkSource.getUserFingerprint(EMAIL, PUBLIC_KEY)
                 authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            }
+            coVerify(exactly = 2) {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
             }
         }
 
@@ -546,8 +559,10 @@ class AuthRequestManagerTest {
 
             coVerify(exactly = 1) {
                 authRequestsService.getAuthRequests()
-                authSdkSource.getUserFingerprint(EMAIL, PUBLIC_KEY)
                 authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            }
+            coVerify(exactly = 2) {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
             }
         }
 
@@ -589,8 +604,10 @@ class AuthRequestManagerTest {
 
             coVerify(exactly = 1) {
                 authRequestsService.getAuthRequests()
-                authSdkSource.getUserFingerprint(EMAIL, PUBLIC_KEY)
                 authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            }
+            coVerify(exactly = 2) {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
             }
         }
 
@@ -631,8 +648,45 @@ class AuthRequestManagerTest {
 
             coVerify(exactly = 1) {
                 authRequestsService.getAuthRequests()
-                authSdkSource.getUserFingerprint(EMAIL, PUBLIC_KEY)
                 authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            }
+            coVerify(exactly = 2) {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+            }
+        }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `getAuthRequestByFingerprintFlow should emit update then declined and cancel when polled fingerprint does not match initial fingerprint`() =
+        runTest {
+            val responseJsonOne = AuthRequestsResponseJson(
+                authRequests = listOf(AUTH_REQUESTS_RESPONSE_JSON_AUTH_RESPONSE),
+            )
+            val expectedOne = AuthRequestUpdatesResult.Update(authRequest = AUTH_REQUEST)
+            val expectedTwo = AuthRequestUpdatesResult.Declined
+            coEvery {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+            } returns FINGER_PRINT.asSuccess() andThen "mismatchedFingerprint".asSuccess()
+            coEvery { authRequestsService.getAuthRequests() } returns responseJsonOne.asSuccess()
+            coEvery {
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            } returns AUTH_REQUESTS_RESPONSE_JSON_AUTH_RESPONSE.asSuccess()
+            fakeAuthDiskSource.userState = SINGLE_USER_STATE
+
+            repository
+                .getAuthRequestByFingerprintFlow(FINGER_PRINT)
+                .test {
+                    assertEquals(expectedOne, awaitItem())
+                    assertEquals(expectedTwo, awaitItem())
+                    awaitComplete()
+                }
+
+            coVerify(exactly = 1) {
+                authRequestsService.getAuthRequests()
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            }
+            coVerify(exactly = 2) {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
             }
         }
 
@@ -716,11 +770,9 @@ class AuthRequestManagerTest {
                     awaitComplete()
                 }
 
-            coVerify(exactly = 1) {
-                authSdkSource.getUserFingerprint(EMAIL, PUBLIC_KEY)
-            }
             coVerify(exactly = 2) {
-                authRequestsService.getAuthRequest(REQUEST_ID)
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
             }
         }
 
@@ -752,11 +804,9 @@ class AuthRequestManagerTest {
                     awaitComplete()
                 }
 
-            coVerify(exactly = 1) {
-                authSdkSource.getUserFingerprint(EMAIL, PUBLIC_KEY)
-            }
             coVerify(exactly = 2) {
-                authRequestsService.getAuthRequest(REQUEST_ID)
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
             }
         }
 
@@ -792,11 +842,9 @@ class AuthRequestManagerTest {
                     awaitComplete()
                 }
 
-            coVerify(exactly = 1) {
-                authSdkSource.getUserFingerprint(EMAIL, PUBLIC_KEY)
-            }
             coVerify(exactly = 2) {
-                authRequestsService.getAuthRequest(REQUEST_ID)
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
             }
         }
 
@@ -833,11 +881,107 @@ class AuthRequestManagerTest {
                     cancelAndConsumeRemainingEvents()
                 }
 
+            coVerify(exactly = 2) {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            }
+        }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `getAuthRequestByIdFlow should emit update then declined and cancel when polled fingerprint does not match initial fingerprint`() =
+        runTest {
+            val expectedOne = AuthRequestUpdatesResult.Update(authRequest = AUTH_REQUEST)
+            val expectedTwo = AuthRequestUpdatesResult.Declined
+            coEvery {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+            } returns FINGER_PRINT.asSuccess() andThen "mismatchedFingerprint".asSuccess()
+            coEvery {
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            } returns AUTH_REQUESTS_RESPONSE_JSON_AUTH_RESPONSE.asSuccess()
+            fakeAuthDiskSource.userState = SINGLE_USER_STATE
+
+            repository
+                .getAuthRequestByIdFlow(REQUEST_ID)
+                .test {
+                    assertEquals(expectedOne, awaitItem())
+                    assertEquals(expectedTwo, awaitItem())
+                    awaitComplete()
+                }
+
+            coVerify(exactly = 2) {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            }
+        }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `getAuthRequestByIdFlow should emit update then error and not cancel when getUserFingerprint fails during polling`() =
+        runTest {
+            val error = Throwable("Fail")
+            val expectedOne = AuthRequestUpdatesResult.Update(authRequest = AUTH_REQUEST)
+            val expectedTwo = AuthRequestUpdatesResult.Error(error = error)
+            coEvery {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+            } returns FINGER_PRINT.asSuccess() andThen error.asFailure()
+            coEvery {
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            } returns AUTH_REQUESTS_RESPONSE_JSON_AUTH_RESPONSE.asSuccess()
+            fakeAuthDiskSource.userState = SINGLE_USER_STATE
+
+            repository
+                .getAuthRequestByIdFlow(REQUEST_ID)
+                .test {
+                    assertEquals(expectedOne, awaitItem())
+                    assertEquals(expectedTwo, awaitItem())
+                    cancelAndConsumeRemainingEvents()
+                }
+
+            coVerify(exactly = 2) {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            }
+        }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `getAuthRequestByIdFlow should emit update with initial publicKey when polled request returns a new publicKey with matching fingerprint`() =
+        runTest {
+            val newPublicKey = "newPublicKey"
+            val authRequestResponseOne = AUTH_REQUESTS_RESPONSE_JSON_AUTH_RESPONSE.asSuccess()
+            val authRequestResponseTwo = AUTH_REQUESTS_RESPONSE_JSON_AUTH_RESPONSE
+                .copy(publicKey = newPublicKey, requestApproved = false)
+                .asSuccess()
+            val expectedOne = AuthRequestUpdatesResult.Update(authRequest = AUTH_REQUEST)
+            val expectedTwo = AuthRequestUpdatesResult.Update(
+                authRequest = AUTH_REQUEST.copy(requestApproved = false),
+            )
+            coEvery {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+            } returns FINGER_PRINT.asSuccess()
+            coEvery {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = newPublicKey)
+            } returns FINGER_PRINT.asSuccess()
+            coEvery {
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
+            } returns authRequestResponseOne andThen authRequestResponseTwo
+            fakeAuthDiskSource.userState = SINGLE_USER_STATE
+
+            repository
+                .getAuthRequestByIdFlow(REQUEST_ID)
+                .test {
+                    assertEquals(expectedOne, awaitItem())
+                    assertEquals(expectedTwo, awaitItem())
+                    cancelAndConsumeRemainingEvents()
+                }
+
             coVerify(exactly = 1) {
-                authSdkSource.getUserFingerprint(EMAIL, PUBLIC_KEY)
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = newPublicKey)
             }
             coVerify(exactly = 2) {
-                authRequestsService.getAuthRequest(REQUEST_ID)
+                authRequestsService.getAuthRequest(requestId = REQUEST_ID)
             }
         }
 
@@ -866,11 +1010,11 @@ class AuthRequestManagerTest {
                 .getAuthRequestsWithUpdates()
                 .test {
                     assertEquals(expectedOne, awaitItem())
-                    advanceTimeBy(threeMinutes)
+                    advanceTimeBy(threeMinutes.milliseconds)
                     expectNoEvents()
-                    advanceTimeBy(threeMinutes)
+                    advanceTimeBy(threeMinutes.milliseconds)
                     assertEquals(expectedTwo, awaitItem())
-                    advanceTimeBy(threeMinutes)
+                    advanceTimeBy(threeMinutes.milliseconds)
                     cancelAndIgnoreRemainingEvents()
                 }
 
@@ -1147,6 +1291,38 @@ class AuthRequestManagerTest {
         }
         assertEquals(expected, result)
     }
+
+    @Test
+    fun `getAuthRequestsWithUpdates should re-read on a push and ignore a non-active user push`() =
+        runTest {
+            val expected = AuthRequestsUpdatesResult.Update(authRequests = listOf(AUTH_REQUEST))
+            coEvery { authRequestsService.getAuthRequests() } returns AuthRequestsResponseJson(
+                authRequests = listOf(AUTH_REQUESTS_RESPONSE_JSON_AUTH_RESPONSE),
+            )
+                .asSuccess()
+            coEvery {
+                authSdkSource.getUserFingerprint(email = EMAIL, publicKey = PUBLIC_KEY)
+            } returns FINGER_PRINT.asSuccess()
+            fakeAuthDiskSource.userState = SINGLE_USER_STATE
+
+            repository
+                .getAuthRequestsWithUpdates()
+                .test {
+                    assertEquals(expected, awaitItem())
+
+                    mutablePasswordlessRequestFlow.emit(
+                        PASSWORDLESS_REQUEST_DATA.copy(userId = "otherUserId"),
+                    )
+                    mutablePasswordlessRequestFlow.emit(PASSWORDLESS_REQUEST_DATA)
+
+                    // Only the active user's push produces a re-read, and it arrives without
+                    // waiting for the polling interval.
+                    assertEquals(expected, awaitItem())
+                    cancelAndIgnoreRemainingEvents()
+                }
+
+            coVerify(exactly = 2) { authRequestsService.getAuthRequests() }
+        }
 }
 
 private const val EMAIL: String = "test@bitwarden.com"
@@ -1228,4 +1404,9 @@ private val AUTH_REQUEST_RESPONSE: AuthRequestResponse = AuthRequestResponse(
     publicKey = PUBLIC_KEY,
     accessCode = "accessCode",
     fingerprint = "fingerprint",
+)
+
+private val PASSWORDLESS_REQUEST_DATA: PasswordlessRequestData = PasswordlessRequestData(
+    loginRequestId = REQUEST_ID,
+    userId = USER_ID,
 )

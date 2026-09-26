@@ -4,6 +4,8 @@ import android.os.Parcelable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.bitwarden.core.data.manager.model.FlagKey
+import com.bitwarden.data.datasource.disk.model.ServerConfig
+import com.bitwarden.data.repository.ServerConfigRepository
 import com.bitwarden.data.repository.model.Environment
 import com.bitwarden.ui.platform.base.BackgroundEvent
 import com.bitwarden.ui.platform.base.BaseViewModel
@@ -37,23 +39,27 @@ private const val KEY_STATE = "state"
 /**
  * Manages application state for the initial landing screen.
  */
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LongParameterList")
 @HiltViewModel
 class LandingViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val vaultRepository: VaultRepository,
     private val environmentRepository: EnvironmentRepository,
+    serverConfigRepository: ServerConfigRepository,
     snackbarRelayManager: SnackbarRelayManager<SnackbarRelay>,
     savedStateHandle: SavedStateHandle,
     featureFlagManager: FeatureFlagManager,
 ) : BaseViewModel<LandingState, LandingEvent, LandingAction>(
-    initialState = savedStateHandle[KEY_STATE]
-        ?: LandingState(
-            emailInput = authRepository.rememberedEmailAddress.orEmpty(),
-            isContinueButtonEnabled = authRepository.rememberedEmailAddress != null,
-            isRememberEmailEnabled = authRepository.rememberedEmailAddress != null,
-            selectedEnvironmentType = environmentRepository.environment.type,
-            selectedEnvironmentLabel = environmentRepository.environment.label,
+    initialState = savedStateHandle[KEY_STATE] ?: run {
+        val environment = environmentRepository.environment
+        val rememberedEmailAddress = authRepository.rememberedEmailAddress
+        LandingState(
+            emailInput = rememberedEmailAddress.orEmpty(),
+            isContinueButtonEnabled = rememberedEmailAddress != null,
+            isRememberEmailEnabled = rememberedEmailAddress != null,
+            selectedEnvironmentType = environment.type,
+            selectedEnvironmentLabel = environment.label,
+            isSelectedEnvironmentFedRamp = environment.isFedRamp,
             dialog = null,
             accountSummaries = authRepository
                 .userStateFlow
@@ -62,7 +68,14 @@ class LandingViewModel @Inject constructor(
                 .orEmpty()
                 .toImmutableList(),
             isFedRampEnabled = featureFlagManager.getFeatureFlag(FlagKey.FedRamp),
-        ),
+            disableCreateAccount = serverConfigRepository
+                .serverConfigStateFlow
+                .value
+                ?.serverData
+                ?.settings
+                ?.disableUserRegistration == true,
+        )
+    },
 ) {
 
     /**
@@ -118,6 +131,12 @@ class LandingViewModel @Inject constructor(
             .map { LandingAction.Internal.FedRampFeatureUpdated(it) }
             .onEach(::sendAction)
             .launchIn(viewModelScope)
+
+        serverConfigRepository
+            .serverConfigStateFlow
+            .map { LandingAction.Internal.ServerConfigReceived(it) }
+            .onEach(::sendAction)
+            .launchIn(viewModelScope)
     }
 
     override fun handleAction(action: LandingAction) {
@@ -149,6 +168,7 @@ class LandingViewModel @Inject constructor(
 
             is LandingAction.Internal.SnackbarDataReceived -> handleSnackbarDataReceived(action)
             is LandingAction.Internal.FedRampFeatureUpdated -> handleFedRampFeatureUpdated(action)
+            is LandingAction.Internal.ServerConfigReceived -> handleServerConfigReceived(action)
         }
     }
 
@@ -242,9 +262,9 @@ class LandingViewModel @Inject constructor(
 
     private fun handleEnvironmentTypeSelect(action: LandingAction.EnvironmentTypeSelect) {
         val environment = when (action.environmentType) {
-            Environment.Type.US -> Environment.Us
-            Environment.Type.EU -> Environment.Eu
-            Environment.Type.FED_RAMP -> Environment.FedRamp
+            Environment.Type.US -> Environment.Prod.Us
+            Environment.Type.EU -> Environment.Prod.Eu
+            Environment.Type.FED_RAMP -> Environment.Prod.FedRamp
             Environment.Type.SELF_HOSTED -> {
                 // Launch the self-hosted screen and select the full environment details there.
                 sendEvent(LandingEvent.NavigateToEnvironment)
@@ -264,6 +284,7 @@ class LandingViewModel @Inject constructor(
             it.copy(
                 selectedEnvironmentType = action.environment.type,
                 selectedEnvironmentLabel = action.environment.label,
+                isSelectedEnvironmentFedRamp = action.environment.isFedRamp,
             )
         }
     }
@@ -274,6 +295,18 @@ class LandingViewModel @Inject constructor(
 
     private fun handleFedRampFeatureUpdated(action: LandingAction.Internal.FedRampFeatureUpdated) {
         mutableStateFlow.update { it.copy(isFedRampEnabled = action.isEnabled) }
+    }
+
+    private fun handleServerConfigReceived(action: LandingAction.Internal.ServerConfigReceived) {
+        mutableStateFlow.update {
+            it.copy(
+                disableCreateAccount = action
+                    .serverConfig
+                    ?.serverData
+                    ?.settings
+                    ?.disableUserRegistration == true,
+            )
+        }
     }
 
     /**
@@ -300,9 +333,11 @@ data class LandingState(
     val isRememberEmailEnabled: Boolean,
     val selectedEnvironmentType: Environment.Type,
     val selectedEnvironmentLabel: String,
+    val isSelectedEnvironmentFedRamp: Boolean,
     val dialog: DialogState?,
     val accountSummaries: ImmutableList<AccountSummary>,
     val isFedRampEnabled: Boolean,
+    val disableCreateAccount: Boolean,
 ) : Parcelable {
     /**
      * The selectable environments.
@@ -316,8 +351,7 @@ data class LandingState(
     /**
      * Determines if the user should be allowed to create a new account.
      */
-    val allowCreateAccount: Boolean
-        get() = selectedEnvironmentType != Environment.Type.FED_RAMP
+    val allowCreateAccount: Boolean get() = !disableCreateAccount && !isSelectedEnvironmentFedRamp
 
     /**
      * Determines whether the app bar should be visible based on the presence of account summaries.
@@ -481,6 +515,13 @@ sealed class LandingAction {
          * Internal action to update the email input state from a non-user action
          */
         data class UpdateEmailState(val emailInput: String) : Internal()
+
+        /**
+         * Indicates that an updated [serverConfig] has been received.
+         */
+        data class ServerConfigReceived(
+            val serverConfig: ServerConfig?,
+        ) : Internal()
 
         /**
          * Indicates that FedRamp feature has been enabled or disabled.

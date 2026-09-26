@@ -24,8 +24,8 @@
     <string name="folder_created">已新增資料夾。</string>
     <string name="folder_deleted">已刪除資料夾。</string>
     <string name="folder_none">（未分類）</string>
-    <string name="folders">資料夾</string>
     <string name="folder_updated">已更新資料夾。</string>
+    <string name="folders">資料夾</string>
     <string name="hide">隱藏</string>
     <string name="internet_connection_required_message">請先連線至網際網路再繼續。</string>
     <string name="internet_connection_required_title">需要網際網路連線</string>
@@ -44,6 +44,8 @@
     <string name="master_password_required">主密碼（必填）</string>
     <string name="new_master_password_required">新增主密碼（必填）</string>
     <string name="more_options">更多選項</string>
+    <string name="my_folder">我的資料夾</string>
+    <string name="my_folders">我的資料夾</string>
     <string name="my_vault">我的密碼庫</string>
     <string name="name">名稱</string>
     <string name="item_name_required">項目名稱（必填）</string>
@@ -78,7 +80,7 @@
     <string name="bitwarden_autofill_service">Bitwarden 自動填入服務</string>
     <string name="change_master_password">變更主密碼</string>
     <string name="close">關閉</string>
-    <string name="close_app">Close app</string>
+    <string name="close_app">關閉應用程式</string>
     <string name="continue_text">繼續</string>
     <string name="create_account">建立帳戶</string>
     <string name="create_an_account">建立帳戶</string>
@@ -117,7 +119,6 @@
     <string name="min_numbers">最少數字位數</string>
     <string name="min_special">最少符號位數</string>
     <string name="never">永不</string>
-    <string name="new_item_created">已新增項目</string>
     <string name="no_cards">您的密碼庫中沒有付款卡。</string>
     <string name="add_card">新增付款卡</string>
     <string name="no_logins">您的密碼庫中沒有登入資料。</string>
@@ -147,6 +148,14 @@
     <string name="select">選擇</string>
     <string name="item_details">項目詳細資訊</string>
     <string name="item_updated">項目已儲存</string>
+    <string name="bank_account_saved">Bank account saved</string>
+    <string name="card_saved">Card saved</string>
+    <string name="identity_saved">Identity saved</string>
+    <string name="license_saved">License saved</string>
+    <string name="login_saved">登入項目已儲存</string>
+    <string name="passport_saved">Passport saved</string>
+    <string name="secure_note_saved">Secure note saved</string>
+    <string name="ssh_key_saved">SSH key saved</string>
     <string name="submitting">提交中…</string>
     <string name="syncing">正在同步…</string>
     <string name="syncing_complete">同步完成</string>
@@ -282,7 +291,9 @@
     <string name="vault_is_locked">密碼庫已鎖定</string>
     <string name="go_to_my_vault">前往我的密碼庫</string>
     <string name="collections">集合</string>
+    <string name="shared_folders">共享資料夾</string>
     <string name="no_items_collection">此集合中沒有項目。</string>
+    <string name="there_are_no_items_in_this_shared_folder">此共享資料夾中沒有項目。</string>
     <string name="no_items_folder">此資料夾中沒有項目。</string>
     <string name="no_items_trash">垃圾桶中沒有項目。</string>
     <string name="autofill_accessibility_summary">在其它應用程式及網頁上協助自動填寫使用者名稱和密碼。</string>
@@ -336,16 +347,21 @@
     <string name="move_up">上移</string>
     <string name="owner">擁有者</string>
     <string name="no_collections_to_list">沒有可顯示的集合。</string>
+    <string name="there_are_no_shared_folders_to_list">沒有可列出的共享資料夾。</string>
     <string name="moved_item_to_org">%1$s 已移動至 %2$s。</string>
     <string name="select_one_collection">您必須至少選擇一個集合。</string>
+    <string name="you_must_select_at_least_one_shared_folder">您必須至少選擇一個共享資料夾。</string>
     <string name="share">共用</string>
     <string name="move_to_organization">移動至組織</string>
     <string name="no_orgs_to_list">沒有可列出的組織。</string>
     <string name="move_to_org_desc">選擇您希望將這個項目移動至哪個組織。項目的擁有權將會轉移至該組織。轉移之後，您將不再是此項目的直接擁有者。</string>
+    <string name="no_vaults_to_list">沒有可列出的保管庫。</string>
+    <string name="move_to_vault_desc">選擇您要將此項目移至的保管庫。移至另一個保管庫後，此項目的擁有權將移轉給該組織。項目移動後，您將不再是此項目的直接擁有者。</string>
     <string name="number_of_words">單字數量</string>
     <string name="passphrase">密碼短語</string>
     <string name="word_separator">單字分隔字元</string>
     <string name="clear">清除</string>
+    <string name="open_calendar">open calendar</string>
     <string name="generator">產生器</string>
     <string name="no_folders_to_list">沒有可列出的資料夾。</string>
     <string name="fingerprint_phrase">指紋短語</string>
@@ -377,6 +393,8 @@
     <string name="pin_require_master_password_restart">當應用程式重新啟動時，是否要求使用主密碼解鎖？</string>
     <string name="ask_to_add_item">要求新增項目</string>
     <string name="ask_to_add_item_description">在密碼庫中找不到相符的項目時詢問是否新增項目。</string>
+    <string name="turn_on_fill_assist">啟用填入輔助</string>
+    <string name="fill_assist_improves_autofill_accuracy_on_supported_sites">填入輔助會使用網站專屬規則，提高支援網站上的自動填入準確性。</string>
     <string name="on_restart">於程式重新啟動時</string>
     <string name="capitalize">大寫</string>
     <string name="include_number">包含數字</string>
@@ -453,6 +471,7 @@
     <string name="deletion_date">刪除日期</string>
     <string name="deletion_time">刪除時間</string>
     <string name="deletion_date_info">此 Send 將在指定的日期和時間後被永久刪除。</string>
+    <string name="this_date_is_enforced_by_your_organization">This date is enforced by your organization</string>
     <string name="who_can_view">誰可以檢視</string>
     <string name="anyone_with_the_link">任何持有連結的人</string>
     <string name="anyone_with_link_can_view_send">任何持有此連結的人都可以檢視此 Send</string>
@@ -490,6 +509,7 @@
     <string name="two_days">2 天</string>
     <string name="three_days">3 天</string>
     <string name="seven_days">7 天</string>
+    <string name="fourteen_days">14 天</string>
     <string name="thirty_days">30 天</string>
     <string name="custom">自訂</string>
     <string name="custom_timeout">自訂逾時時間</string>
@@ -498,6 +518,11 @@
     <string name="about_send">關於 Send</string>
     <string name="hide_email">對收件人隱藏我的電子郵件地址</string>
     <string name="send_options_policy_in_effect">一個或多個組織原則正影響您的 Send 選項。</string>
+    <string name="organization_policy_restriction">Organization policy restriction</string>
+    <string name="this_send_is_not_compliant_with_your_organizations_send_policy">This Send is not compliant with your organization’s Send policy and will automatically expire at the set deletion date.</string>
+    <string name="text_sends_are_not_allowed_for_your_organization">Text Sends are not allowed for your organization and this Send will automatically expire at the set deletion date.</string>
+    <string name="to_edit_this_send_make_a_copy">To edit this Send, make a copy. If this Send can expire at the set deletion date, no action is needed.</string>
+    <string name="make_a_copy">Make a copy</string>
     <string name="send_file_premium_required">免費帳戶僅限於共用文字。若想使用檔案 Send，需要進階會員資格。</string>
     <string name="sharing_with_specific_people_is_a_premium_feature">與特定人員分享為 Premium 功能。您目前的方案不包含此功能的使用權限。</string>
     <string name="password_prompt">重新詢問主密碼</string>
@@ -609,10 +634,10 @@
     <string name="forwarded_email_description">使用外部轉寄服務產生一個電子郵件別名。</string>
     <string name="accessibility_service_disclosure">無障礙服務聲明</string>
     <string name="accessibility_disclosure_text">Bitwarden 使用無障礙服務搜寻應用程式和網站中的登入欄位，然後建立適當的欄位 ID，以便在找到應用程式或網站的匹配項目時輸入用戶名和密碼。 我們不會存儲此服務提供給我們的任何資訊，也不會試圖控制憑證文字輸入以外的任何荧幕元素。</string>
-    <string name="accessibility_disclosure_start_up_text_1">This notice is required before Bitwarden can offer accessibility-based autofill.</string>
-    <string name="accessibility_disclosure_start_up_text_2">Bitwarden offers an optional autofill method that uses Android’s Accessibility Service to detect login fields. If you enable it, Bitwarden will identify the appropriate fields and fill in your credentials when a match is found.</string>
-    <string name="accessibility_disclosure_start_up_text_3">We don’t store any information about what’s onscreen while you use the Accessibility Service, and we don’t control any onscreen elements beyond credential entry.</string>
-    <string name="i_understand">I understand</string>
+    <string name="accessibility_disclosure_start_up_text_1">在 Bitwarden 提供以無障礙功能為基礎的自動填入前，必須先顯示此通知。</string>
+    <string name="accessibility_disclosure_start_up_text_2">Bitwarden 提供一種選用的自動填入方式，透過 Android 的無障礙服務偵測登入欄位。啟用後，Bitwarden 會辨識適當的欄位，並在找到相符項目時填入您的登入資料。</string>
+    <string name="accessibility_disclosure_start_up_text_3">使用無障礙服務期間，我們不會儲存任何螢幕顯示內容的資訊，也不會控制登入資料輸入以外的任何螢幕元素。</string>
+    <string name="i_understand">我了解</string>
     <string name="accept">接受</string>
     <string name="decline">拒絕</string>
     <string name="login_request_has_already_expired">登入要求已逾期。</string>
@@ -682,6 +707,7 @@
     <string name="logging_in_on">正登入到</string>
     <string name="logging_in_on_with_colon">正登入到：</string>
     <string name="vault">密碼庫</string>
+    <string name="select_vault">選擇保管庫</string>
     <string name="appearance">外觀</string>
     <string name="account_security">帳戶安全性</string>
     <string name="bitwarden_help_center">Bitwarden 幫助中心</string>
@@ -1131,7 +1157,8 @@
     <string name="advanced_options">進階選項</string>
     <string name="more_about_match_detection"><annotation link="moreAboutMatchDetection">深入了解匹配偵測</annotation></string>
     <string name="keep_your_credential_secure">保護您的憑證安全</string>
-    <string name="learn_more_about_how_to_keep_credentirals_secure">瞭解在使用「%1$s」時如何確保憑證安全。</string>
+    <string name="learn_more_about_how_to_keep_credentirals_secure">瞭解在使用「%1$s」時如何確保憑證安全。
+</string>
     <string name="are_you_sure_you_want_to_use">您確定要使用「%1$s」嗎？</string>
     <string name="default_uri_match_detection_description_advanced_options_incorrectly">URI 比對偵測可控制 Bitwarden 如何識別自動填入建議。\n<annotation emphasis="bold">警告：</annotation>「正規表示式」為進階選項，若使用不當，可能增加憑證外洩的風險。</string>
     <string name="default_uri_match_detection_description_advanced_options">URI 比對偵測可控制 Bitwarden 如何識別自動填入建議。\n<annotation emphasis="bold">警告：</annotation>「開頭符合」為進階選項，可能增加憑證外洩的風險。</string>
@@ -1146,8 +1173,8 @@
     <string name="no_items_imported">未匯入任何項目</string>
     <string name="no_items_received_from_the_selected_app">未從所選應用程式接收到項目。</string>
     <string name="vault_sync_failed">密碼庫同步失敗</string>
-    <string name="vault_sync_unsuccessful">Sync unsuccessful</string>
-    <string name="vault_sync_failed_description">We couldn’t sync your vault with the server. Your vault may not reflect your latest changes. You can try again now or it will sync automatically later.</string>
+    <string name="vault_sync_unsuccessful">同步失敗</string>
+    <string name="vault_sync_failed_description">無法將您的保管庫與伺服器同步。您的保管庫可能未反映最新變更。您可以立即重試，或稍後等待系統自動同步。</string>
     <string name="your_items_have_been_successfully_imported_but_could_not_sync_vault">您的項目已成功匯入，但在執行同步之前，不會顯示於您的密碼庫中。</string>
     <string name="there_was_a_problem_importing_your_items">匯入項目時發生問題。請再試一次。若問題持續，請聯絡支援。</string>
     <string name="saving_items">儲存物件</string>
@@ -1207,14 +1234,14 @@
     <string name="item_moved_to_archived">項目已移至封存</string>
     <string name="item_moved_to_vault">項目已移至密碼庫</string>
     <string name="archiving_items_is_a_premium_feature">封存項目為進階版功能。您目前的方案不包含此功能。</string>
-    <string name="totp_is_a_premium_feature">Authenticator key (TOTP) is a Premium feature. Your current plan does not include access to this feature.</string>
+    <string name="totp_is_a_premium_feature">驗證器金鑰（TOTP）為 Premium 功能。您目前的方案未包含此功能。</string>
     <string name="upgrade_to_premium">升級到 Premium</string>
     <string name="plan">方案</string>
     <string name="to_manage_your_premium_subscription_youll_need_to_login_to_your_web_vault_on_a_computer">若要管理您的 Premium 訂閱，您需要在電腦上登入您的網頁保管庫。</string>
     <string name="unlock_advanced_security_features">解鎖進階安全功能</string>
-    <string name="your_subscription_needs_attention">Your subscription needs attention</string>
-    <string name="check_your_plan_for_details">Check your plan for details.</string>
-    <string name="view_plan">View plan</string>
+    <string name="your_subscription_needs_attention">您的訂閱需要處理</string>
+    <string name="check_your_plan_for_details">請查看您的方案以了解詳情。</string>
+    <string name="view_plan">查看方案</string>
     <string name="a_premium_plan_gives_you_more_tools_to_stay_secure_and_in_control">Premium 方案可提供更多工具，讓您保持安全並掌控一切。</string>
     <string name="this_item_is_archived">此項目已被封存。</string>
     <string name="introducing_archive">封存功能介紹</string>
@@ -1229,6 +1256,7 @@
     <string name="invalid_email_addresses">電郵無效</string>
     <string name="one_or_more_email_addresses_are_incorrect">一個或多個電子郵件地址不正確。請檢查後再試一次。</string>
     <string name="no_email_addresses_entered">尚未輸入任何電子郵件地址</string>
+    <string name="only_include_the_following_domains_x_please_review_and_try_again">Only include the following domains: %1$s. Please review and try again.</string>
     <string name="enter_at_least_one_valid_email_address_to_share_this_send">請至少輸入一個有效的電子郵件地址以分享此 Send。</string>
     <string name="sync_with_browser">與瀏覽器同步</string>
     <string name="sync_with_browser_description">若要連線至 %1$s，請將您的預設瀏覽器與 Bitwarden 行動應用程式同步。瀏覽器開啟後，如有提示請完成登入。\n同步完成後，您將返回此應用程式。</string>
@@ -1268,13 +1296,13 @@
     <string name="upgrade_pending">升級處理中</string>
     <string name="upgrade_pending_message">您的升級正在處理中。在完成之前，您將維持免費方案。立即同步以進行檢查，或繼續操作，系統將自動更新。</string>
     <string name="unlock_premium_features">透過 Premium 方案解鎖更多進階功能。</string>
-    <string name="per_month">/ 月</string>
+    <string name="per_month_cancel_anytime">/ 月 · 隨時可取消</string>
+    <string name="per_month_cancel_anytime_content_description">每月 %1$s，隨時可取消</string>
     <string name="built_in_authenticator">內建驗證器</string>
     <string name="emergency_access">緊急存取</string>
     <string name="secure_file_storage">安全檔案儲存</string>
     <string name="breach_monitoring">外洩監控</string>
-    <string name="upgrade_now">立即升級</string>
-    <string name="youll_go_to_stripes_secure_checkout_to_complete_your_purchase">您將前往 Stripe 的安全結帳頁面完成購買。</string>
+    <string name="youll_complete_the_purchase_with_stripe_secure_checkout">您將透過 Stripe 安全結帳完成購買。</string>
     <string name="opening_checkout">正在開啟結帳頁面…</string>
     <string name="secure_checkout_didnt_load">安全結帳頁面未成功載入</string>
     <string name="trouble_opening_payment_page">開啟付款頁面時發生問題，請再試一次。</string>
@@ -1306,13 +1334,13 @@
     <string name="subscription_status_expired">已逾期</string>
     <string name="subscription_status_past_due">逾期</string>
     <string name="subscription_status_paused">已暫停</string>
-    <string name="subscription_status_unpaid">Unpaid</string>
+    <string name="subscription_status_unpaid">待付款</string>
     <string name="subscription_status_update_payment">更新付款方式</string>
     <string name="subscription_status_pending_cancellation">待取消</string>
     <string name="subscription_pending_cancellation_description">您的訂閱預計將於 <annotation emphasis="bold"><annotation arg="0">%1$s</annotation></annotation> 取消。在此之前，您隨時都可以恢復訂閱。</string>
     <string name="premium_next_charge_summary">您的下一筆扣款為 %1$s USD，將於 %2$s 到期。</string>
     <string name="subscription_canceled_description">您的訂閱已於 %1$s 取消。重新訂閱以繼續使用 Premium 功能。</string>
-    <string name="subscription_unpaid_description">Your subscription was suspended on <annotation emphasis="bold"><annotation arg="0">%1$s</annotation></annotation>. To reactivate, please resolve your past due invoices.</string>
+    <string name="subscription_unpaid_description">您的訂閱已於 <annotation emphasis="bold"><annotation arg="0">%1$s</annotation></annotation> 暫停。若要重新啟用，請先繳清逾期帳單。</string>
     <string name="subscription_update_payment_description">我們無法處理您的付款。請在您的訂閱於 <annotation emphasis="bold"><annotation arg="0">%1$s</annotation></annotation> 結束前更新付款方式。</string>
     <plurals name="subscription_past_due_description">
         <item quantity="other">自訂閱到期日起，您有 %1$d 天的寬限期。請於 %2$s 前完成逾期款項付款。</item>
@@ -1394,4 +1422,20 @@
     <string name="your_request_was_interrupted_because_the_app_needs_local_network_access">您的要求已中斷，因為應用程式需要本機網路存取權限。您可以在裝置設定中啟用此權限。</string>
     <string name="continue_to_stripe">要前往 Stripe 嗎？</string>
     <string name="youll_be_taken_to_stripe_to_manage_your_subscription_cancellation">您將前往 Stripe 管理您的訂閱取消事宜。</string>
+    <string name="unlock_advanced_protection">解鎖進階防護功能</string>
+    <string name="breeze_through_2fa_with_built_in_codes">使用內建驗證碼輕鬆完成雙重驗證</string>
+    <string name="run_reports_to_find_risky_passwords">執行報表以找出高風險密碼</string>
+    <string name="add_a_trusted_emergency_contact">新增可信任的緊急聯絡人</string>
+    <string name="identify_unsecure_websites">識別不安全的網站</string>
+    <string name="flag_accounts_with_inactive_2fa">標示未啟用雙重驗證的帳戶</string>
+    <string name="keep_documents_safe_and_encrypted">安全加密保存文件</string>
+    <string name="share_files_securely_with_anyone_using_send">使用 Send 安全地與任何人分享檔案</string>
+    <string name="receive_24_7_priority_support">享有全年無休的優先支援</string>
+    <string name="account_creation_restricted">帳戶建立受到限制</string>
+    <string name="only_allows_invited_users_to_create_accounts">%1$s 僅允許受邀使用者建立帳戶。</string>
+    <string name="stepper_decrement_format" comment="Used to announce the value that will be decremented when a button is pressed">Decrease %1$s</string>
+    <string name="stepper_increment_format" comment="Used to announce the value that will be incremented when a button is pressed">Increase %1$s</string>
+    <string name="use_this_passphrase">Use this passphrase</string>
+    <string name="use_this_password">Use this password</string>
+    <string name="use_this_username">Use this username</string>
 </resources>

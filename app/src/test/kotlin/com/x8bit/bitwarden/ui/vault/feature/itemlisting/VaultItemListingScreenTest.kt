@@ -58,6 +58,7 @@ import com.x8bit.bitwarden.ui.credentials.manager.model.GetPasswordCredentialRes
 import com.x8bit.bitwarden.ui.platform.base.BitwardenComposeTest
 import com.x8bit.bitwarden.ui.platform.feature.search.model.SearchType
 import com.x8bit.bitwarden.ui.platform.manager.biometrics.BiometricsManager
+import com.x8bit.bitwarden.ui.platform.model.FeatureFlagsState
 import com.x8bit.bitwarden.ui.tools.feature.send.addedit.AddEditSendRoute
 import com.x8bit.bitwarden.ui.tools.feature.send.addedit.ModeType
 import com.x8bit.bitwarden.ui.tools.feature.send.model.SendItemType
@@ -132,6 +133,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
             intentManager = intentManager,
             credentialProviderCompletionManager = credentialProviderCompletionManager,
             biometricsManager = biometricsManager,
+            featureFlagsState = FeatureFlagsState(isVfo1FoundationEnabled = true),
         ) {
             VaultItemListingScreen(
                 viewModel = viewModel,
@@ -792,7 +794,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
 
     @Test
     fun `Folders text should be displayed according to state`() {
-        val folders = "FOLDERS (1)"
+        val folders = "MY FOLDERS (1)"
         mutableStateFlow.update { DEFAULT_STATE }
         composeTestRule
             .onNodeWithText(text = folders)
@@ -822,7 +824,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
     fun `Folders text count should be displayed according to state`() {
         mutableStateFlow.update { DEFAULT_STATE }
         composeTestRule
-            .onNodeWithText(text = "FOLDERS (1)")
+            .onNodeWithText(text = "MY FOLDERS (1)")
             .assertDoesNotExist()
 
         mutableStateFlow.update {
@@ -837,7 +839,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
             )
         }
         composeTestRule
-            .onNodeWithTextAfterScroll(text = "FOLDERS (1)")
+            .onNodeWithTextAfterScroll(text = "MY FOLDERS (1)")
             .assertIsDisplayed()
 
         mutableStateFlow.update {
@@ -867,7 +869,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
         }
 
         composeTestRule
-            .onNodeWithTextAfterScroll(text = "FOLDERS (3)")
+            .onNodeWithTextAfterScroll(text = "MY FOLDERS (3)")
             .assertIsDisplayed()
     }
 
@@ -902,7 +904,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
 
     @Test
     fun `Collections text should be displayed according to state`() {
-        val collectionName = "Collections"
+        val collectionName = "Shared folders"
         mutableStateFlow.update { DEFAULT_STATE }
         composeTestRule
             .onNodeWithText(text = collectionName)
@@ -932,7 +934,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
     fun `Collection text count should be displayed according to state`() {
         mutableStateFlow.update { DEFAULT_STATE }
         composeTestRule
-            .onNodeWithText(text = "COLLECTIONS (3)")
+            .onNodeWithText(text = "SHARED FOLDERS (3)")
             .assertDoesNotExist()
 
         mutableStateFlow.update {
@@ -961,7 +963,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
             )
         }
         composeTestRule
-            .onNodeWithTextAfterScroll(text = "COLLECTIONS (3)")
+            .onNodeWithTextAfterScroll(text = "SHARED FOLDERS (3)")
             .assertIsDisplayed()
 
         mutableStateFlow.update {
@@ -981,7 +983,7 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
         }
 
         composeTestRule
-            .onNodeWithTextAfterScroll(text = "COLLECTIONS (1)")
+            .onNodeWithTextAfterScroll(text = "SHARED FOLDERS (1)")
             .assertIsDisplayed()
     }
 
@@ -1366,6 +1368,33 @@ class VaultItemListingScreenTest : BitwardenComposeTest() {
         }
         composeTestRule
             .onNodeWithText(text = "mockName")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `topBar title should be displayed for identity autofill selection regardless of the uri`() {
+        mutableStateFlow.update {
+            it.copy(
+                itemListingType = VaultItemListingState.ItemListingType.Vault.Identity,
+                autofillSelectionData = AUTOFILL_SELECTION_DATA.copy(
+                    type = AutofillSelectionData.Type.IDENTITY,
+                    uri = null,
+                ),
+            )
+        }
+        composeTestRule
+            .onNodeWithText(text = "Choose an identity")
+            .assertIsDisplayed()
+
+        mutableStateFlow.update {
+            it.copy(
+                autofillSelectionData = AUTOFILL_SELECTION_DATA.copy(
+                    type = AutofillSelectionData.Type.IDENTITY,
+                ),
+            )
+        }
+        composeTestRule
+            .onNodeWithText(text = "Choose an identity")
             .assertIsDisplayed()
     }
 
@@ -2669,9 +2698,9 @@ private val DEFAULT_STATE = VaultItemListingState(
     accountSummaries = ACCOUNT_SUMMARIES,
     viewState = VaultItemListingState.ViewState.Loading,
     vaultFilterType = VaultFilterType.AllVaults,
-    baseWebSendUrl = Environment.Us.environmentUrlData.baseWebSendUrl,
+    baseWebSendUrl = Environment.Prod.Us.baseWebSendUrl,
     isIconLoadingDisabled = false,
-    baseIconUrl = Environment.Us.environmentUrlData.baseIconUrl,
+    baseIconUrl = Environment.Prod.Us.baseIconUrl,
     isPullToRefreshSettingEnabled = false,
     dialogState = null,
     policyDisablesSend = false,

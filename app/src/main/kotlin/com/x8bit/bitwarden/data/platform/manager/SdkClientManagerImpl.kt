@@ -6,6 +6,7 @@ import com.bitwarden.core.data.util.concurrentMapOf
 import com.bitwarden.core.util.isBuildVersionAtLeast
 import com.bitwarden.data.manager.NativeLibraryManager
 import com.bitwarden.sdk.Client
+import com.bitwarden.sdk.ManagedSettingsBindingClient
 import com.x8bit.bitwarden.data.platform.manager.sdk.SdkPlatformApiFactory
 import com.x8bit.bitwarden.data.platform.manager.sdk.SdkRepositoryFactory
 import kotlinx.coroutines.CoroutineScope
@@ -16,7 +17,7 @@ import kotlinx.coroutines.runBlocking
 /**
  * Primary implementation of [SdkClientManager].
  */
-class SdkClientManagerImpl(
+internal class SdkClientManagerImpl(
     nativeLibraryManager: NativeLibraryManager,
     dispatcherManager: DispatcherManager,
     sdkRepoFactory: SdkRepositoryFactory,
@@ -32,6 +33,9 @@ class SdkClientManagerImpl(
                 accessToken = accessToken,
             ),
             settings = sdkRepoFactory.getClientSettings(),
+            // There is no unified endpoint management source on Android, so a fresh handle is
+            // passed here and no setting reads as administrator-forced.
+            managedSettings = ManagedSettingsBindingClient(),
         )
             .apply {
                 platform().loadFlags(featureFlagManager.sdkFeatureFlags)
@@ -42,6 +46,9 @@ class SdkClientManagerImpl(
                 platform().state().registerClientManagedRepositories(
                     repositories = sdkRepoFactory.getRepositories(userId = userId),
                 )
+                userId?.let {
+                    kmStateBridge().registerBridgeImpl(sdkRepoFactory.getStateBridge(userId = it))
+                }
             }
     },
 ) : SdkClientManager {

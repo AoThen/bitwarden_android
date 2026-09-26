@@ -3,6 +3,7 @@ package com.x8bit.bitwarden.data.auth.datasource.disk.util
 import com.bitwarden.core.WrappedAccountCryptographicState
 import com.bitwarden.core.data.repository.util.bufferedMutableSharedFlow
 import com.bitwarden.network.model.SyncResponseJson
+import com.bitwarden.network.model.V2UpgradeTokenJson
 import com.x8bit.bitwarden.data.auth.datasource.disk.AuthDiskSource
 import com.x8bit.bitwarden.data.auth.datasource.disk.model.AccountTokensJson
 import com.x8bit.bitwarden.data.auth.datasource.disk.model.OnboardingStatus
@@ -65,9 +66,15 @@ class FakeAuthDiskSource : AuthDiskSource {
     private val storedLastLockTimestampState = mutableMapOf<String, Instant?>()
     private val storedAccountCryptographicState =
         mutableMapOf<String, WrappedAccountCryptographicState?>()
-    private val storedPinProtectedUserKeyEnvelopes = mutableMapOf<String, Pair<String?, Boolean>>()
-    private val mutablePinProtectedUserKeyEnvelopesFlowMap =
+    private val storedEphemeralPinProtectedUserKeyEnvelopes = mutableMapOf<String, String?>()
+    private val storedPersistentPinProtectedUserKeyEnvelopes = mutableMapOf<String, String?>()
+    private val mutableEphemeralPinProtectedUserKeyEnvelopesFlowMap =
         mutableMapOf<String, MutableSharedFlow<String?>>()
+    private val mutablePersistentPinProtectedUserKeyEnvelopesFlowMap =
+        mutableMapOf<String, MutableSharedFlow<String?>>()
+    private val storedV2UpgradeTokens = mutableMapOf<String, V2UpgradeTokenJson?>()
+    private val storedUserKeyIds = mutableMapOf<String, String?>()
+    private val storedV2EncryptedMigrationsGracePeriodStarts = mutableMapOf<String, Instant?>()
 
     override var userState: UserStateJson? = null
         set(value) {
@@ -90,21 +97,25 @@ class FakeAuthDiskSource : AuthDiskSource {
         storedBiometricInitVectors.remove(userId)
         storedBiometricKeys.remove(userId)
         storedOrganizationKeys.remove(userId)
-        storedPinProtectedUserKeyEnvelopes.remove(userId)
+        storedEphemeralPinProtectedUserKeyEnvelopes.remove(userId)
+        storedPersistentPinProtectedUserKeyEnvelopes.remove(userId)
         storedEncryptedPins.remove(userId)
         storedPinProtectedUserKeys.remove(userId)
+        storedV2UpgradeTokens.remove(userId)
+        storedUserKeyIds.remove(userId)
 
         mutableShouldUseKeyConnectorFlowMap.remove(userId)
         mutableOrganizationsFlowMap.remove(userId)
         mutablePoliciesFlowMap.remove(userId)
         mutableAccountTokensFlowMap.remove(userId)
-        mutablePinProtectedUserKeyEnvelopesFlowMap.remove(userId)
-    }
+        mutableEphemeralPinProtectedUserKeyEnvelopesFlowMap.remove(userId)
+        mutablePersistentPinProtectedUserKeyEnvelopesFlowMap.remove(userId)
 
-    private fun getMutablePinProtectedUserKeyEnvelopeFlow(
-        userId: String,
-    ): MutableSharedFlow<String?> = mutablePinProtectedUserKeyEnvelopesFlowMap.getOrPut(userId) {
-        bufferedMutableSharedFlow(replay = 1)
+        // Certain values are never removed as required by the feature requirements:
+        // * DeviceKey
+        // * PendingAuthRequest
+        // * OnboardingStatus
+        // * V2EncryptedMigrationsGracePeriodStart
     }
 
     override fun getShouldUseKeyConnectorFlow(
@@ -161,6 +172,29 @@ class FakeAuthDiskSource : AuthDiskSource {
         storedAccountCryptographicState[userId] = accountCryptographicState
     }
 
+    override fun getUserKeyId(userId: String): String? = storedUserKeyIds[userId]
+
+    override fun storeUserKeyId(userId: String, userKeyId: String?) {
+        storedUserKeyIds[userId] = userKeyId
+    }
+
+    override fun getV2UpgradeToken(userId: String): V2UpgradeTokenJson? =
+        storedV2UpgradeTokens[userId]
+
+    override fun storeV2UpgradeToken(userId: String, v2UpgradeToken: V2UpgradeTokenJson?) {
+        storedV2UpgradeTokens[userId] = v2UpgradeToken
+    }
+
+    override fun getV2EncryptedMigrationsGracePeriodStart(userId: String): Instant? =
+        storedV2EncryptedMigrationsGracePeriodStarts[userId]
+
+    override fun storeV2EncryptedMigrationsGracePeriodStart(
+        userId: String,
+        gracePeriodStart: Instant?,
+    ) {
+        storedV2EncryptedMigrationsGracePeriodStarts[userId] = gracePeriodStart
+    }
+
     override fun getTwoFactorToken(email: String): String? = storedTwoFactorTokens[email]
 
     override fun storeTwoFactorToken(email: String, twoFactorToken: String?) {
@@ -175,15 +209,15 @@ class FakeAuthDiskSource : AuthDiskSource {
     }
 
     @Deprecated(
-        "Use getPinProtectedUserKeyEnvelope instead.",
-        replaceWith = ReplaceWith("getPinProtectedUserKeyEnvelope"),
+        "Use getEphemeralPinProtectedUserKeyEnvelope and " +
+            "getPersistentPinProtectedUserKeyEnvelope instead.",
     )
     override fun getPinProtectedUserKey(userId: String): String? =
         storedPinProtectedUserKeys[userId]?.first
 
     @Deprecated(
-        "Use storePinProtectedUserKeyEnvelope instead.",
-        replaceWith = ReplaceWith("storePinProtectedUserKeyEnvelope"),
+        "Use storeEphemeralPinProtectedUserKeyEnvelope and " +
+            "storePersistentPinProtectedUserKeyEnvelope instead.",
     )
     override fun storePinProtectedUserKey(
         userId: String,
@@ -195,8 +229,8 @@ class FakeAuthDiskSource : AuthDiskSource {
     }
 
     @Deprecated(
-        "Use getPinProtectedUserKeyEnvelopeFlow instead.",
-        replaceWith = ReplaceWith("getPinProtectedUserKeyEnvelopeFlow"),
+        "Use getEphemeralPinProtectedUserKeyEnvelopeFlow and " +
+            "getPersistentPinProtectedUserKeyEnvelopeFlow instead.",
     )
     override fun getPinProtectedUserKeyFlow(userId: String): Flow<String?> =
         getMutablePinProtectedUserKeyFlow(userId)
@@ -347,40 +381,63 @@ class FakeAuthDiskSource : AuthDiskSource {
         storedLastLockTimestampState[userId] = lastLockTimestamp
     }
 
-    override fun getPinProtectedUserKeyEnvelope(userId: String): String? =
-        storedPinProtectedUserKeyEnvelopes[userId]?.first
+    override fun getPinProtectedUserKeyEnvelope(
+        userId: String,
+    ): String? = getEphemeralPinProtectedUserKeyEnvelope(userId = userId)
+        ?: getPersistentPinProtectedUserKeyEnvelope(userId = userId)
 
-    override fun storePinProtectedUserKeyEnvelope(
+    override fun getEphemeralPinProtectedUserKeyEnvelope(
+        userId: String,
+    ): String? = storedEphemeralPinProtectedUserKeyEnvelopes[userId]
+
+    override fun getPersistentPinProtectedUserKeyEnvelope(
+        userId: String,
+    ): String? = storedPersistentPinProtectedUserKeyEnvelopes[userId]
+
+    override fun storeEphemeralPinProtectedUserKeyEnvelope(
         userId: String,
         pinProtectedUserKeyEnvelope: String?,
-        inMemoryOnly: Boolean,
     ) {
-        storedPinProtectedUserKeyEnvelopes[userId] = pinProtectedUserKeyEnvelope to inMemoryOnly
-        getMutablePinProtectedUserKeyEnvelopeFlow(userId).tryEmit(pinProtectedUserKeyEnvelope)
+        storedEphemeralPinProtectedUserKeyEnvelopes[userId] = pinProtectedUserKeyEnvelope
+        getMutableEphemeralPinProtectedUserKeyEnvelopeFlow(userId = userId)
+            .tryEmit(pinProtectedUserKeyEnvelope)
     }
 
-    override fun getPinProtectedUserKeyEnvelopeFlow(userId: String): Flow<String?> =
-        getMutablePinProtectedUserKeyEnvelopeFlow(userId)
-            .onSubscription {
-                emit(getPinProtectedUserKeyEnvelope(userId))
-            }
+    override fun storePersistentPinProtectedUserKeyEnvelope(
+        userId: String,
+        pinProtectedUserKeyEnvelope: String?,
+    ) {
+        storedPersistentPinProtectedUserKeyEnvelopes[userId] = pinProtectedUserKeyEnvelope
+        getMutablePersistentPinProtectedUserKeyEnvelopeFlow(userId = userId)
+            .tryEmit(pinProtectedUserKeyEnvelope)
+    }
+
+    override fun getEphemeralPinProtectedUserKeyEnvelopeFlow(
+        userId: String,
+    ): Flow<String?> = getMutableEphemeralPinProtectedUserKeyEnvelopeFlow(userId = userId)
+        .onSubscription { emit(getEphemeralPinProtectedUserKeyEnvelope(userId = userId)) }
+
+    override fun getPersistentPinProtectedUserKeyEnvelopeFlow(
+        userId: String,
+    ): Flow<String?> = getMutablePersistentPinProtectedUserKeyEnvelopeFlow(userId = userId)
+        .onSubscription { emit(getPersistentPinProtectedUserKeyEnvelope(userId = userId)) }
 
     /**
-     * Assert the the [isTdeLoginComplete] was stored successfully using the [userId].
+     * Assert the [isTdeLoginComplete] was stored successfully using the [userId].
      */
     fun assertIsTdeLoginComplete(userId: String, isTdeLoginComplete: Boolean?) {
         assertEquals(isTdeLoginComplete, storedIsTdeLoginComplete[userId])
     }
 
     /**
-     * Assert the the [shouldTrustDevice] was stored successfully using the [userId].
+     * Assert the [shouldTrustDevice] was stored successfully using the [userId].
      */
     fun assertShouldTrustDevice(userId: String, shouldTrustDevice: Boolean?) {
         assertEquals(shouldTrustDevice, storedShouldTrustDevice[userId])
     }
 
     /**
-     * Assert the the [shouldUseKeyConnector] was stored successfully using the [userId].
+     * Assert the [shouldUseKeyConnector] was stored successfully using the [userId].
      */
     fun assertShouldUseKeyConnector(userId: String, shouldUseKeyConnector: Boolean?) {
         assertEquals(shouldUseKeyConnector, storedShouldUseKeyConnector[userId])
@@ -389,7 +446,7 @@ class FakeAuthDiskSource : AuthDiskSource {
     /**
      * Assert that the given [userState] matches the currently tracked value.
      */
-    fun assertUserState(userState: UserStateJson) {
+    fun assertUserState(userState: UserStateJson?) {
         assertEquals(userState, this.userState)
     }
 
@@ -418,10 +475,38 @@ class FakeAuthDiskSource : AuthDiskSource {
     }
 
     /**
+     * Assert that the [userKeyId] was stored successfully using the [userId].
+     */
+    fun assertUserKeyId(userId: String, userKeyId: String?) {
+        assertEquals(userKeyId, storedUserKeyIds[userId])
+    }
+
+    /**
+     * Assert that the [v2UpgradeToken] was stored successfully using the [userId].
+     */
+    fun assertV2UpgradeToken(userId: String, v2UpgradeToken: V2UpgradeTokenJson?) {
+        assertEquals(v2UpgradeToken, storedV2UpgradeTokens[userId])
+    }
+
+    /**
+     * Assert that the [gracePeriodStart] was stored successfully using the [userId].
+     */
+    fun assertV2EncryptedMigrationsGracePeriodStart(userId: String, gracePeriodStart: Instant?) {
+        assertEquals(gracePeriodStart, storedV2EncryptedMigrationsGracePeriodStarts[userId])
+    }
+
+    /**
      * Assert that the [twoFactorToken] was stored successfully using the [email].
      */
     fun assertTwoFactorToken(email: String, twoFactorToken: String?) {
         assertEquals(twoFactorToken, storedTwoFactorTokens[email])
+    }
+
+    /**
+     * Assert that the [authenticatorSyncKey] was stored successfully using the [userId].
+     */
+    fun assertAuthenticatorSyncKey(userId: String, authenticatorSyncKey: String?) {
+        assertEquals(authenticatorSyncKey, storedAuthenticationSyncKeys[userId])
     }
 
     /**
@@ -450,21 +535,35 @@ class FakeAuthDiskSource : AuthDiskSource {
     }
 
     /**
-     * Assert that the [pinProtectedUserKeyEnvelope] was stored successfully using the [userId].
+     * Assert that the ephemeral [pinProtectedUserKeyEnvelope] was stored successfully using the
+     * [userId].
      */
-    fun assertPinProtectedUserKeyEnvelope(
+    fun assertEphemeralPinProtectedUserKeyEnvelope(
         userId: String,
         pinProtectedUserKeyEnvelope: String?,
-        inMemoryOnly: Boolean = false,
     ) {
         assertEquals(
-            pinProtectedUserKeyEnvelope to inMemoryOnly,
-            storedPinProtectedUserKeyEnvelopes[userId],
+            pinProtectedUserKeyEnvelope,
+            storedEphemeralPinProtectedUserKeyEnvelopes[userId],
         )
     }
 
     /**
-     * Assert the the [organizationKeys] was stored successfully using the [userId].
+     * Assert that the persistent [pinProtectedUserKeyEnvelope] was stored successfully using the
+     * [userId].
+     */
+    fun assertPersistentPinProtectedUserKeyEnvelope(
+        userId: String,
+        pinProtectedUserKeyEnvelope: String?,
+    ) {
+        assertEquals(
+            pinProtectedUserKeyEnvelope,
+            storedPersistentPinProtectedUserKeyEnvelopes[userId],
+        )
+    }
+
+    /**
+     * Assert the [organizationKeys] was stored successfully using the [userId].
      */
     fun assertOrganizationKeys(userId: String, organizationKeys: Map<String, String>?) {
         assertEquals(organizationKeys, storedOrganizationKeys[userId])
@@ -586,6 +685,18 @@ class FakeAuthDiskSource : AuthDiskSource {
     ): MutableSharedFlow<String?> = mutablePinProtectedUserKeysFlowMap.getOrPut(userId) {
         bufferedMutableSharedFlow(replay = 1)
     }
+
+    private fun getMutableEphemeralPinProtectedUserKeyEnvelopeFlow(
+        userId: String,
+    ): MutableSharedFlow<String?> = mutableEphemeralPinProtectedUserKeyEnvelopesFlowMap.getOrPut(
+        key = userId,
+    ) { bufferedMutableSharedFlow(replay = 1) }
+
+    private fun getMutablePersistentPinProtectedUserKeyEnvelopeFlow(
+        userId: String,
+    ): MutableSharedFlow<String?> = mutablePersistentPinProtectedUserKeyEnvelopesFlowMap.getOrPut(
+        key = userId,
+    ) { bufferedMutableSharedFlow(replay = 1) }
 
     //endregion Private helper functions
 }

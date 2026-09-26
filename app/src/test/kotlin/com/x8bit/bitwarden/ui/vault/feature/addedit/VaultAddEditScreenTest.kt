@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextContains
@@ -46,6 +47,7 @@ import com.bitwarden.core.data.util.advanceTimeByAndRunCurrent
 import com.bitwarden.ui.platform.components.snackbar.model.BitwardenSnackbarData
 import com.bitwarden.ui.platform.manager.IntentManager
 import com.bitwarden.ui.platform.manager.exit.ExitManager
+import com.bitwarden.ui.platform.resource.BitwardenString
 import com.bitwarden.ui.util.asText
 import com.bitwarden.ui.util.assertNoDialogExists
 import com.bitwarden.ui.util.assertScrollableNodeDoesNotExist
@@ -63,6 +65,7 @@ import com.x8bit.bitwarden.ui.credentials.manager.model.CreateCredentialResult
 import com.x8bit.bitwarden.ui.platform.base.BitwardenComposeTest
 import com.x8bit.bitwarden.ui.platform.manager.biometrics.BiometricsManager
 import com.x8bit.bitwarden.ui.platform.manager.permissions.FakePermissionManager
+import com.x8bit.bitwarden.ui.platform.model.FeatureFlagsState
 import com.x8bit.bitwarden.ui.tools.feature.generator.model.GeneratorMode
 import com.x8bit.bitwarden.ui.vault.feature.addedit.model.CustomFieldAction
 import com.x8bit.bitwarden.ui.vault.feature.addedit.model.CustomFieldType
@@ -80,6 +83,9 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.runTest
@@ -98,6 +104,8 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     private var onNavigateToManualCodeEntryScreenCalled = false
     private var onNavigateToGeneratorModalType: GeneratorMode.Modal? = null
     private var onNavigateToAttachmentsId: String? = null
+    private var onCloseAndNavigateToVaultItemId: String? = null
+    private var onCloseAndNavigateToVaultItemType: VaultItemCipherType? = null
     private var onNavigateToCardScanScreenCalled = false
     private var onNavigateToMoveToOrganizationId: String? = null
     private var onNavigateToPlanCalled = false
@@ -132,6 +140,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             intentManager = intentManager,
             credentialProviderCompletionManager = credentialProviderCompletionManager,
             biometricsManager = biometricsManager,
+            featureFlagsState = FeatureFlagsState(isVfo1FoundationEnabled = true),
         ) {
             VaultAddEditScreen(
                 onNavigateBack = { onNavigateBackCalled = true },
@@ -144,6 +153,10 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
                 onNavigateToMoveToOrganization = { id, _ -> onNavigateToMoveToOrganizationId = id },
                 onNavigateToCardScanScreen = { onNavigateToCardScanScreenCalled = true },
                 onNavigateToPlan = { onNavigateToPlanCalled = true },
+                onCloseAndNavigateToVaultItem = { id, type ->
+                    onCloseAndNavigateToVaultItemId = id
+                    onCloseAndNavigateToVaultItemType = type
+                },
                 viewModel = viewModel,
             )
         }
@@ -257,6 +270,17 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         val cipherId = "cipherId-1234"
         mutableEventFlow.tryEmit(VaultAddEditEvent.NavigateToAttachments(cipherId))
         assertEquals(cipherId, onNavigateToAttachmentsId)
+    }
+
+    @Test
+    fun `on CloseAndNavigateToVaultItem event should invoke onCloseAndNavigateToVaultItem`() {
+        val cipherId = "cipherId-1234"
+        val cipherType = VaultItemCipherType.LOGIN
+        mutableEventFlow.tryEmit(
+            VaultAddEditEvent.CloseAndNavigateToVaultItem(cipherId, cipherType),
+        )
+        assertEquals(cipherId, onCloseAndNavigateToVaultItemId)
+        assertEquals(cipherType, onCloseAndNavigateToVaultItemType)
     }
 
     @Test
@@ -1761,7 +1785,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         mutableStateFlow.value = DEFAULT_STATE_IDENTITY
         // Opens the menu
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "-- Select --. Title")
+            .onNodeWithContentDescriptionAfterScroll(label = "Select. Title")
             .performClick()
 
         // Choose the option from the menu
@@ -1784,7 +1808,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     fun `in ItemType_Identity the Title should display the selected title from the state`() {
         mutableStateFlow.value = DEFAULT_STATE_IDENTITY
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "-- Select --. Title")
+            .onNodeWithContentDescriptionAfterScroll(label = "Select. Title")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -2429,7 +2453,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         mutableStateFlow.value = DEFAULT_STATE_CARD
         // Opens the menu
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "-- Select --. Brand")
+            .onNodeWithContentDescriptionAfterScroll(label = "Select. Brand")
             .performClick()
 
         // Choose the option from the menu
@@ -2452,7 +2476,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     fun `in ItemType_Card the Brand should display the selected brand from the state`() {
         mutableStateFlow.value = DEFAULT_STATE_CARD
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "-- Select --. Brand")
+            .onNodeWithContentDescriptionAfterScroll(label = "Select. Brand")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -2473,7 +2497,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         mutableStateFlow.value = DEFAULT_STATE_CARD
         // Opens the menu
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "-- Select --. Expiration month")
+            .onNodeWithContentDescriptionAfterScroll(label = "Select. Expiration month")
             .performClick()
 
         // Choose the option from the menu
@@ -2497,7 +2521,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     fun `in ItemType_Card the Expiration month should display the selected expiration month from the state`() {
         mutableStateFlow.value = DEFAULT_STATE_CARD
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "-- Select --. Expiration month")
+            .onNodeWithContentDescriptionAfterScroll(label = "Select. Expiration month")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -2648,7 +2672,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         mutableStateFlow.value = DEFAULT_STATE_BANK_ACCOUNT
         // Opens the menu
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "-- Select --. Account type")
+            .onNodeWithContentDescriptionAfterScroll(label = "Select. Account type")
             .performClick()
 
         // Choose the option from the menu
@@ -2916,7 +2940,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     fun `in ItemType_License the date of birth should display the selected date from the state`() {
         mutableStateFlow.value = DEFAULT_STATE_LICENSE
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Date of birth")
+            .onNodeWithContentDescriptionAfterScroll(label = "Date of birth")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -2933,13 +2957,21 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     @Suppress("MaxLineLength")
     @Test
     fun `in ItemType_License clicking the date of birth clear button should trigger DateOfBirthChange with null`() {
-        mutableStateFlow.value = DEFAULT_STATE_LICENSE
+        mutableStateFlow.value = DEFAULT_STATE_LICENSE.copy(
+            viewState = VaultAddEditState.ViewState.Content(
+                common = VaultAddEditState.ViewState.Content.Common(),
+                type = VaultAddEditState.ViewState.Content.ItemType.License(
+                    dateOfBirth = LocalDate.of(2026, 9, 10),
+                ),
+                isIndividualVaultDisabled = false,
+            ),
+        )
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Date of birth")
-            .performClick()
-
-        composeTestRule
-            .onNodeWithText(text = "Clear")
+            .onNodeWithContentDescriptionAfterScroll(label = "September 10, 2026. Date of birth")
+            .onChildren()
+            .filterToOne(matcher = hasText(text = "Date of birth"))
+            .onChildren()
+            .filterToOne(matcher = hasContentDescription(value = "Clear"))
             .performClick()
 
         verify {
@@ -2953,7 +2985,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     fun `in ItemType_License the issue date should display the selected date from the state`() {
         mutableStateFlow.value = DEFAULT_STATE_LICENSE
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Issue date")
+            .onNodeWithContentDescriptionAfterScroll(label = "Issue date")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -2970,13 +3002,21 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     @Suppress("MaxLineLength")
     @Test
     fun `in ItemType_License clicking the issue date clear button should trigger IssueDateChange with null`() {
-        mutableStateFlow.value = DEFAULT_STATE_LICENSE
+        mutableStateFlow.value = DEFAULT_STATE_LICENSE.copy(
+            viewState = VaultAddEditState.ViewState.Content(
+                common = VaultAddEditState.ViewState.Content.Common(),
+                type = VaultAddEditState.ViewState.Content.ItemType.License(
+                    issueDate = LocalDate.of(2026, 9, 10),
+                ),
+                isIndividualVaultDisabled = false,
+            ),
+        )
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Issue date")
-            .performClick()
-
-        composeTestRule
-            .onNodeWithText(text = "Clear")
+            .onNodeWithContentDescriptionAfterScroll(label = "September 10, 2026. Issue date")
+            .onChildren()
+            .filterToOne(matcher = hasText(text = "Issue date"))
+            .onChildren()
+            .filterToOne(matcher = hasContentDescription(value = "Clear"))
             .performClick()
 
         verify {
@@ -2991,7 +3031,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     fun `in ItemType_License the expiration date should display the selected date from the state`() {
         mutableStateFlow.value = DEFAULT_STATE_LICENSE
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Expiration date")
+            .onNodeWithContentDescriptionAfterScroll(label = "Expiration date")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -3008,13 +3048,21 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     @Suppress("MaxLineLength")
     @Test
     fun `in ItemType_License clicking the expiration date clear button should trigger ExpirationDateChange with null`() {
-        mutableStateFlow.value = DEFAULT_STATE_LICENSE
+        mutableStateFlow.value = DEFAULT_STATE_LICENSE.copy(
+            viewState = VaultAddEditState.ViewState.Content(
+                common = VaultAddEditState.ViewState.Content.Common(),
+                type = VaultAddEditState.ViewState.Content.ItemType.License(
+                    expirationDate = LocalDate.of(2026, 9, 10),
+                ),
+                isIndividualVaultDisabled = false,
+            ),
+        )
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Expiration date")
-            .performClick()
-
-        composeTestRule
-            .onNodeWithText(text = "Clear")
+            .onNodeWithContentDescriptionAfterScroll(label = "September 10, 2026. Expiration date")
+            .onChildren()
+            .filterToOne(matcher = hasText(text = "Expiration date"))
+            .onChildren()
+            .filterToOne(matcher = hasContentDescription(value = "Clear"))
             .performClick()
 
         verify {
@@ -3195,7 +3243,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     fun `in ItemType_Passport the date of birth should display the selected date from the state`() {
         mutableStateFlow.value = DEFAULT_STATE_PASSPORT
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Date of birth")
+            .onNodeWithContentDescriptionAfterScroll(label = "Date of birth")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -3212,13 +3260,21 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     @Suppress("MaxLineLength")
     @Test
     fun `in ItemType_Passport clicking the date of birth clear button should trigger DateOfBirthChange with null`() {
-        mutableStateFlow.value = DEFAULT_STATE_PASSPORT
+        mutableStateFlow.value = DEFAULT_STATE_PASSPORT.copy(
+            viewState = VaultAddEditState.ViewState.Content(
+                common = VaultAddEditState.ViewState.Content.Common(),
+                type = VaultAddEditState.ViewState.Content.ItemType.Passport(
+                    dateOfBirth = LocalDate.of(2026, 9, 10),
+                ),
+                isIndividualVaultDisabled = false,
+            ),
+        )
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Date of birth")
-            .performClick()
-
-        composeTestRule
-            .onNodeWithText(text = "Clear")
+            .onNodeWithContentDescriptionAfterScroll(label = "September 10, 2026. Date of birth")
+            .onChildren()
+            .filterToOne(matcher = hasText(text = "Date of birth"))
+            .onChildren()
+            .filterToOne(matcher = hasContentDescription(value = "Clear"))
             .performClick()
 
         verify {
@@ -3228,12 +3284,11 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         }
     }
 
-    @Suppress("MaxLineLength")
     @Test
     fun `in ItemType_Passport the issue date should display the selected date from the state`() {
         mutableStateFlow.value = DEFAULT_STATE_PASSPORT
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Issue date")
+            .onNodeWithContentDescriptionAfterScroll(label = "Issue date")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -3250,13 +3305,21 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     @Suppress("MaxLineLength")
     @Test
     fun `in ItemType_Passport clicking the issue date clear button should trigger IssueDateChange with null`() {
-        mutableStateFlow.value = DEFAULT_STATE_PASSPORT
+        mutableStateFlow.value = DEFAULT_STATE_PASSPORT.copy(
+            viewState = VaultAddEditState.ViewState.Content(
+                common = VaultAddEditState.ViewState.Content.Common(),
+                type = VaultAddEditState.ViewState.Content.ItemType.Passport(
+                    issueDate = LocalDate.of(2026, 9, 10),
+                ),
+                isIndividualVaultDisabled = false,
+            ),
+        )
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Issue date")
-            .performClick()
-
-        composeTestRule
-            .onNodeWithText(text = "Clear")
+            .onNodeWithContentDescriptionAfterScroll(label = "September 10, 2026. Issue date")
+            .onChildren()
+            .filterToOne(matcher = hasText(text = "Issue date"))
+            .onChildren()
+            .filterToOne(matcher = hasContentDescription(value = "Clear"))
             .performClick()
 
         verify {
@@ -3271,7 +3334,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     fun `in ItemType_Passport the expiration date should display the selected date from the state`() {
         mutableStateFlow.value = DEFAULT_STATE_PASSPORT
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Expiration date")
+            .onNodeWithContentDescriptionAfterScroll(label = "Expiration date")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -3288,13 +3351,21 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     @Suppress("MaxLineLength")
     @Test
     fun `in ItemType_Passport clicking the expiration date clear button should trigger ExpirationDateChange with null`() {
-        mutableStateFlow.value = DEFAULT_STATE_PASSPORT
+        mutableStateFlow.value = DEFAULT_STATE_PASSPORT.copy(
+            viewState = VaultAddEditState.ViewState.Content(
+                common = VaultAddEditState.ViewState.Content.Common(),
+                type = VaultAddEditState.ViewState.Content.ItemType.Passport(
+                    expirationDate = LocalDate.of(2026, 9, 10),
+                ),
+                isIndividualVaultDisabled = false,
+            ),
+        )
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "null. Expiration date")
-            .performClick()
-
-        composeTestRule
-            .onNodeWithText(text = "Clear")
+            .onNodeWithContentDescriptionAfterScroll(label = "September 10, 2026. Expiration date")
+            .onChildren()
+            .filterToOne(matcher = hasText(text = "Expiration date"))
+            .onChildren()
+            .filterToOne(matcher = hasContentDescription(value = "Clear"))
             .performClick()
 
         verify {
@@ -3354,7 +3425,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         // Opens the menu
         composeTestRule
             .onNodeWithContentDescriptionAfterScroll(
-                label = "placeholder@email.com. Owner",
+                label = "My vault. Vault",
             )
             .performClick()
 
@@ -3366,13 +3437,37 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     }
 
     @Test
+    fun `clicking a Ownership option should clear focus from the focused text field`() {
+        mutableStateFlow.value = DEFAULT_STATE_CARD
+        updateStateWithOwners()
+        composeTestRule.waitForIdle()
+        mutableEventFlow.tryEmit(VaultAddEditEvent.FocusCardHolderName)
+        composeTestRule.waitForIdle()
+        composeTestRule
+            .onNodeWithTag("CardholderNameEntry")
+            .performScrollTo()
+            .assertIsFocused()
+
+        composeTestRule
+            .onNodeWithContentDescriptionAfterScroll(
+                label = "My vault. Vault",
+            )
+            .performClick()
+
+        composeTestRule
+            .onNodeWithTag("CardholderNameEntry")
+            .performScrollTo()
+            .assertIsNotFocused()
+    }
+
+    @Test
     fun `should show owner selection bottom sheet when state updates to OwnerSelection`() {
         mutableStateFlow.update {
             it.copy(bottomSheetState = VaultAddEditState.BottomSheetState.OwnerSelection)
         }
 
         composeTestRule
-            .onNodeWithText("Owner")
+            .onNodeWithText("Select vault")
             .assertIsDisplayed()
     }
 
@@ -3383,7 +3478,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         }
 
         composeTestRule
-            .onNodeWithText("Owner")
+            .onNodeWithText("Select vault")
             .assertIsDisplayed()
 
         composeTestRule
@@ -3409,10 +3504,11 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
                     availableOwners = listOf(
                         VaultAddEditState.Owner(
                             id = ownerId,
-                            name = ownerName,
+                            name = ownerName.asText(),
                             collections = DEFAULT_COLLECTIONS,
                         ),
-                    ),
+                    )
+                        .toImmutableList(),
                 )
             }
                 .copy(bottomSheetState = VaultAddEditState.BottomSheetState.OwnerSelection)
@@ -3438,7 +3534,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         updateStateWithOwners()
         composeTestRule
             .onNodeWithContentDescriptionAfterScroll(
-                label = "placeholder@email.com. Owner",
+                label = "My vault. Vault",
             )
             .assertIsDisplayed()
 
@@ -3447,7 +3543,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         }
 
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "mockOwnerName-2. Owner")
+            .onNodeWithContentDescriptionAfterScroll(label = "mockOwnerName-2. Vault")
             .assertIsDisplayed()
     }
 
@@ -3486,10 +3582,11 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             availableOwners = listOf(
                 VaultAddEditState.Owner(
                     id = null,
-                    name = "placeholder@email.com",
+                    name = BitwardenString.my_vault.asText(),
                     collections = DEFAULT_COLLECTIONS,
                 ),
-            ),
+            )
+                .toImmutableList(),
             hasOrganizations = false,
         )
 
@@ -3554,7 +3651,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
 
         // Opens the menu
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "No Folder. Folder")
+            .onNodeWithContentDescriptionAfterScroll(label = "No Folder. My folder")
             .performClick()
 
         verify {
@@ -3565,11 +3662,33 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
     }
 
     @Test
+    fun `clicking a Folder Option should clear focus from the focused text field`() {
+        mutableStateFlow.value = DEFAULT_STATE_CARD
+        updateStateWithFolders()
+        composeTestRule.waitForIdle()
+        mutableEventFlow.tryEmit(VaultAddEditEvent.FocusCardHolderName)
+        composeTestRule.waitForIdle()
+        composeTestRule
+            .onNodeWithTag("CardholderNameEntry")
+            .performScrollTo()
+            .assertIsFocused()
+
+        composeTestRule
+            .onNodeWithContentDescriptionAfterScroll(label = "No Folder. My folder")
+            .performClick()
+
+        composeTestRule
+            .onNodeWithTag("CardholderNameEntry")
+            .performScrollTo()
+            .assertIsNotFocused()
+    }
+
+    @Test
     fun `the folder control should display the text provided by the state`() {
         updateStateWithFolders()
 
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "No Folder. Folder")
+            .onNodeWithContentDescriptionAfterScroll(label = "No Folder. My folder")
             .assertIsDisplayed()
 
         mutableStateFlow.update { currentState ->
@@ -3577,7 +3696,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         }
 
         composeTestRule
-            .onNodeWithContentDescriptionAfterScroll(label = "mockFolderName-1. Folder")
+            .onNodeWithContentDescriptionAfterScroll(label = "mockFolderName-1. My folder")
             .assertIsDisplayed()
     }
 
@@ -3588,7 +3707,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         }
 
         composeTestRule
-            .onNodeWithText("Folders")
+            .onNodeWithText("My folders")
             .assertIsDisplayed()
 
         composeTestRule
@@ -3603,7 +3722,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         }
 
         composeTestRule
-            .onNodeWithText("Folders")
+            .onNodeWithText("My folders")
             .assertIsDisplayed()
 
         composeTestRule
@@ -3627,7 +3746,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         }
 
         composeTestRule
-            .onNodeWithText("Folders")
+            .onNodeWithText("My folders")
             .assertIsDisplayed()
 
         composeTestRule
@@ -3650,7 +3769,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         val newFolderName = "newFolderName"
 
         composeTestRule
-            .onNodeWithText("Folders")
+            .onNodeWithText("My folders")
             .assertIsDisplayed()
 
         composeTestRule
@@ -3876,7 +3995,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
 
         composeTestRule
             .onNodeWithContentDescriptionAfterScroll(
-                label = "placeholder@email.com. Owner",
+                label = "My vault. Vault",
             )
             .assertIsDisplayed()
 
@@ -3886,7 +4005,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
 
         composeTestRule
             .onNodeWithContentDescriptionAfterScroll(
-                label = "mockOwnerName-2. Owner",
+                label = "mockOwnerName-2. Vault",
             )
             .assertIsDisplayed()
     }
@@ -4411,12 +4530,12 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             .assertIsDisplayed()
 
         composeTestRule
-            .onAllNodesWithText("Collections")
+            .onAllNodesWithText("Shared folders")
             .filterToOne(hasAnyAncestor(isPopup()))
             .assertIsDisplayed()
 
         composeTestRule
-            .onAllNodesWithText("Move to Organization")
+            .onAllNodesWithText("Move")
             .filterToOne(hasAnyAncestor(isPopup()))
             .assertDoesNotExist()
 
@@ -4442,7 +4561,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
         }
         // Confirm overflow is closed on initial load
         composeTestRule
-            .onAllNodesWithText("Collections")
+            .onAllNodesWithText("Shared folders")
             .filter(hasAnyAncestor(isPopup()))
             .assertCountEquals(0)
 
@@ -4453,7 +4572,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
 
         // Confirm Collections option is present
         composeTestRule
-            .onAllNodesWithText("Collections")
+            .onAllNodesWithText("Shared folders")
             .filterToOne(hasAnyAncestor(isPopup()))
             .assertIsDisplayed()
 
@@ -4472,7 +4591,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             )
         }
         composeTestRule
-            .onAllNodesWithText("Collections")
+            .onAllNodesWithText("Shared folders")
             .filter(hasAnyAncestor(isPopup()))
             .assertCountEquals(0)
     }
@@ -4504,12 +4623,12 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             .assertIsDisplayed()
 
         composeTestRule
-            .onAllNodesWithText("Move to Organization")
+            .onAllNodesWithText("Move")
             .filterToOne(hasAnyAncestor(isPopup()))
             .assertIsDisplayed()
 
         composeTestRule
-            .onAllNodesWithText("Collections")
+            .onAllNodesWithText("Shared folders")
             .filterToOne(hasAnyAncestor(isPopup()))
             .assertDoesNotExist()
 
@@ -5130,7 +5249,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
 
     private fun updateStateWithOwners(
         selectedOwnerId: String? = null,
-        availableOwners: List<VaultAddEditState.Owner> = DEFAULT_OWNERS,
+        availableOwners: ImmutableList<VaultAddEditState.Owner> = DEFAULT_OWNERS,
         hasOrganizations: Boolean = true,
     ) {
         mutableStateFlow.update { currentState ->
@@ -5175,7 +5294,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
 
         // Confirm dropdown version of item is absent
         composeTestRule
-            .onAllNodesWithText("Move to Organization")
+            .onAllNodesWithText("Move")
             .filter(hasAnyAncestor(isPopup()))
             .assertCountEquals(0)
         // Open the overflow menu
@@ -5185,7 +5304,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
 
         // Confirm it does not exist
         composeTestRule
-            .onAllNodesWithText("Move to Organization")
+            .onAllNodesWithText("Move")
             .filterToOne(hasAnyAncestor(isPopup()))
             .assertIsNotDisplayed()
     }
@@ -5210,7 +5329,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
 
         // Confirm dropdown version of item is absent
         composeTestRule
-            .onAllNodesWithText("Move to Organization")
+            .onAllNodesWithText("Move")
             .filter(hasAnyAncestor(isPopup()))
             .assertCountEquals(0)
 
@@ -5219,7 +5338,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             .performClick()
 
         composeTestRule
-            .onAllNodesWithText("Move to Organization")
+            .onAllNodesWithText("Move")
             .filterToOne(hasAnyAncestor(isPopup()))
             .assertIsDisplayed()
     }
@@ -5396,6 +5515,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val DEFAULT_STATE_LOGIN = VaultAddEditState(
@@ -5412,6 +5532,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val DEFAULT_STATE_IDENTITY = VaultAddEditState(
@@ -5428,6 +5549,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val DEFAULT_STATE_CARD = VaultAddEditState(
@@ -5444,6 +5566,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val DEFAULT_STATE_BANK_ACCOUNT = VaultAddEditState(
@@ -5460,6 +5583,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val DEFAULT_STATE_LICENSE = VaultAddEditState(
@@ -5476,6 +5600,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val DEFAULT_STATE_PASSPORT = VaultAddEditState(
@@ -5492,6 +5617,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val DEFAULT_STATE_SECURE_NOTES_CUSTOM_FIELDS = VaultAddEditState(
@@ -5518,6 +5644,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val DEFAULT_STATE_SECURE_NOTES = VaultAddEditState(
@@ -5534,6 +5661,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val DEFAULT_STATE_SSH_KEYS = VaultAddEditState(
@@ -5550,6 +5678,7 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             defaultUriMatchType = UriMatchTypeModel.EXACT,
             hasPremium = false,
             isCardScannerEnabled = false,
+            isVfo1FoundationEnabled = true,
         )
 
         private val ALTERED_COLLECTIONS = listOf(
@@ -5561,20 +5690,20 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             ),
         )
 
-        private val ALTERED_OWNERS = listOf(
+        private val ALTERED_OWNERS = persistentListOf(
             VaultAddEditState.Owner(
                 id = null,
-                name = "placeholder@email.com",
+                name = BitwardenString.my_vault.asText(),
                 collections = emptyList(),
             ),
             VaultAddEditState.Owner(
                 id = "mockOwnerId-1",
-                name = "mockOwnerName-1",
+                name = "mockOwnerName-1".asText(),
                 collections = emptyList(),
             ),
             VaultAddEditState.Owner(
                 id = "mockOwnerId-2",
-                name = "mockOwnerName-2",
+                name = "mockOwnerName-2".asText(),
                 collections = ALTERED_COLLECTIONS,
             ),
         )
@@ -5588,20 +5717,20 @@ class VaultAddEditScreenTest : BitwardenComposeTest() {
             ),
         )
 
-        private val DEFAULT_OWNERS = listOf(
+        private val DEFAULT_OWNERS = persistentListOf(
             VaultAddEditState.Owner(
                 id = null,
-                name = "placeholder@email.com",
+                name = BitwardenString.my_vault.asText(),
                 collections = emptyList(),
             ),
             VaultAddEditState.Owner(
                 id = "mockOwnerId-1",
-                name = "mockOwnerName-1",
+                name = "mockOwnerName-1".asText(),
                 collections = emptyList(),
             ),
             VaultAddEditState.Owner(
                 id = "mockOwnerId-2",
-                name = "mockOwnerName-2",
+                name = "mockOwnerName-2".asText(),
                 collections = DEFAULT_COLLECTIONS,
             ),
         )

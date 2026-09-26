@@ -350,10 +350,19 @@ class LandingScreenTest : BitwardenComposeTest() {
             .performScrollTo()
             .assertIsDisplayed()
 
-        mutableStateFlow.update { it.copy(selectedEnvironmentType = Environment.Type.FED_RAMP) }
+        mutableStateFlow.update { it.copy(isSelectedEnvironmentFedRamp = true) }
         composeTestRule.onNodeWithText(text = "Create an account").assertDoesNotExist()
 
-        mutableStateFlow.update { it.copy(selectedEnvironmentType = Environment.Type.EU) }
+        mutableStateFlow.update { it.copy(isSelectedEnvironmentFedRamp = false) }
+        composeTestRule
+            .onNodeWithText(text = "Create an account")
+            .performScrollTo()
+            .assertIsDisplayed()
+
+        mutableStateFlow.update { it.copy(disableCreateAccount = true) }
+        composeTestRule.onNodeWithText(text = "Create an account").assertDoesNotExist()
+
+        mutableStateFlow.update { it.copy(disableCreateAccount = false) }
         composeTestRule
             .onNodeWithText(text = "Create an account")
             .performScrollTo()
@@ -362,11 +371,11 @@ class LandingScreenTest : BitwardenComposeTest() {
 
     @Test
     fun `selecting environment should send EnvironmentOptionSelect action`() {
-        val selectedEnvironment = Environment.Eu
+        val selectedEnvironment = Environment.Prod.Eu
 
         // Clicking to open dialog
         composeTestRule
-            .onNodeWithText(Environment.Us.label)
+            .onNodeWithText(Environment.Prod.Us.label)
             .performClick()
 
         // Clicking item on dialog
@@ -521,8 +530,10 @@ private val DEFAULT_STATE = LandingState(
     isContinueButtonEnabled = true,
     isRememberEmailEnabled = false,
     selectedEnvironmentType = Environment.Type.US,
-    selectedEnvironmentLabel = Environment.Us.label,
+    selectedEnvironmentLabel = Environment.Prod.Us.label,
+    isSelectedEnvironmentFedRamp = false,
     dialog = null,
     accountSummaries = persistentListOf(),
     isFedRampEnabled = true,
+    disableCreateAccount = false,
 )

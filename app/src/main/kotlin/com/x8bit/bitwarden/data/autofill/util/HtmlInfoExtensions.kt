@@ -2,7 +2,14 @@
 
 package com.x8bit.bitwarden.data.autofill.util
 
+import android.util.Pair
 import android.view.ViewStructure.HtmlInfo
+import com.x8bit.bitwarden.data.autofill.model.FillAssistRules
+
+private const val HTML_ATTR_ID = "id"
+private const val HTML_ATTR_NAME = "name"
+private const val HTML_ATTR_TYPE = "type"
+private const val HTML_ATTR_ROLE = "role"
 
 /**
  * Whether this [HtmlInfo] represents a password field.
@@ -59,6 +66,118 @@ fun HtmlInfo?.isCardBrandField(): Boolean = isInputField &&
     hints().containsAnyTerms(SUPPORTED_RAW_CARD_BRAND_HINTS)
 
 /**
+ * Whether this [HtmlInfo] represents an email field.
+ */
+fun HtmlInfo?.isEmailField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_EMAIL_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a full person name field.
+ */
+fun HtmlInfo?.isPersonNameFullField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_PERSON_NAME_FULL_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a person name prefix field.
+ */
+fun HtmlInfo?.isPersonNamePrefixField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_PERSON_NAME_PREFIX_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a given (first) name field.
+ */
+fun HtmlInfo?.isPersonNameGivenField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_PERSON_NAME_GIVEN_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a middle name field.
+ */
+fun HtmlInfo?.isPersonNameMiddleField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_PERSON_NAME_MIDDLE_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a family (last) name field.
+ */
+fun HtmlInfo?.isPersonNameFamilyField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_PERSON_NAME_FAMILY_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a full postal address field.
+ */
+fun HtmlInfo?.isPostalAddressFullField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_POSTAL_ADDRESS_FULL_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a street address field.
+ */
+fun HtmlInfo?.isAddressStreetField(): Boolean = isInputField &&
+    (
+        hints().containsAnyTerms(SUPPORTED_RAW_ADDRESS_STREET_HINTS) ||
+            hints().equalsAnyTerms(SUPPORTED_EXACT_ADDRESS_STREET_HINTS)
+    )
+
+/**
+ * Whether this [HtmlInfo] represents an extended/secondary address (e.g. apartment, suite, unit)
+ * field.
+ */
+fun HtmlInfo?.isAddressExtendedField(): Boolean = isInputField &&
+    hints().containsAnyTermsPreservingDigits(SUPPORTED_RAW_ADDRESS_EXTENDED_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a locality (city) field.
+ */
+fun HtmlInfo?.isAddressLocalityField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_ADDRESS_LOCALITY_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a region (state/province) field.
+ */
+fun HtmlInfo?.isAddressRegionField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_ADDRESS_REGION_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a country field.
+ */
+fun HtmlInfo?.isAddressCountryField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_ADDRESS_COUNTRY_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a postal code field.
+ */
+fun HtmlInfo?.isPostalCodeField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_POSTAL_CODE_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a phone number field.
+ */
+fun HtmlInfo?.isPhoneField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_PHONE_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a company field.
+ */
+fun HtmlInfo?.isCompanyField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_COMPANY_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a social security number field.
+ */
+fun HtmlInfo?.isSsnField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_SSN_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a passport number field.
+ */
+fun HtmlInfo?.isPassportNumberField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_PASSPORT_HINTS)
+
+/**
+ * Whether this [HtmlInfo] represents a license number field.
+ */
+fun HtmlInfo?.isLicenseNumberField(): Boolean = isInputField &&
+    hints().containsAnyTerms(SUPPORTED_RAW_LICENSE_HINTS)
+
+/**
  * Attributes that can be used as hints to determine the type of data the associated node expects.
  *
  * This function is untestable as [HtmlInfo] contains [android.util.Pair] which requires
@@ -94,6 +213,46 @@ fun HtmlInfo?.hints(): List<String> = this
 val HtmlInfo?.isInputField: Boolean get() = this?.tag == "input"
 
 /**
+ * Whether this [HtmlInfo] matches the given [FillAssistRules.SelectorClause].
+ *
+ * This function is untestable as [HtmlInfo] contains [android.util.Pair] which requires
+ * instrumentation testing.
+ */
+internal fun HtmlInfo.matchesSelectorClause(clause: FillAssistRules.SelectorClause): Boolean {
+    // A clause with no usable constraint must not match every node with the same tag.
+    if (clause.isUnconstrained) return false
+    if (clause.tag != null && clause.tag != tag) return false
+    val attrs = attributes ?: return clause.hasNoAttributeConstraints
+
+    return matchesAttr(attrs, clause.id, HTML_ATTR_ID) &&
+        matchesAttr(attrs, clause.name, HTML_ATTR_NAME) &&
+        matchesAttr(attrs, clause.type, HTML_ATTR_TYPE) &&
+        matchesAttr(attrs, clause.role, HTML_ATTR_ROLE)
+}
+
+/**
+ * Whether this [FillAssistRules.SelectorClause] has no tag or attribute constraint, and would
+ * therefore vacuously match every node if not explicitly rejected.
+ */
+private val FillAssistRules.SelectorClause.isUnconstrained: Boolean
+    get() = tag == null && hasNoAttributeConstraints
+
+/**
+ * Whether this [FillAssistRules.SelectorClause] has no `id`/`name`/`type`/`role` constraint.
+ */
+private val FillAssistRules.SelectorClause.hasNoAttributeConstraints: Boolean
+    get() = id == null && name == null && type == null && role == null
+
+/**
+ * Whether [value] is unconstrained, or [attrs] contains an attribute named [key] with [value].
+ */
+private fun matchesAttr(
+    attrs: List<Pair<String, String>>,
+    value: String?,
+    key: String,
+): Boolean = value == null || attrs.any { it.first == key && it.second == value }
+
+/**
  * Checks if the list of strings contains any of the specified patterns.
  */
 private fun List<String>.containsAnyPatterns(patterns: List<Regex>): Boolean = this
@@ -110,7 +269,28 @@ private fun List<String>.containsAnyTerms(terms: List<String>): Boolean =
     }
 
 /**
+ * Checks if the list of strings, normalized digit-preserving, contains any of the [terms].
+ */
+private fun List<String>.containsAnyTermsPreservingDigits(terms: List<String>): Boolean =
+    this.any { string ->
+        string
+            .toLowerCaseAndStripNonAlphanumeric()
+            .containsAnyTerms(terms)
+    }
+
+/**
+ * Checks if any string in the list, once normalized digit-preserving, is exactly equal to one of
+ * the [terms]. Used for terms too generic to match safely as a substring (e.g. "address" -- see
+ * [SUPPORTED_EXACT_ADDRESS_STREET_HINTS]).
+ */
+private fun List<String>.equalsAnyTerms(terms: List<String>): Boolean =
+    this.any { string -> string.toLowerCaseAndStripNonAlphanumeric() in terms }
+
+/**
  * The supported attribute keys whose value can represent an autofill hint.
+ *
+ * Matched as substrings of the attribute name, so `autofill` and `hint` also admit the
+ * browser-supplied `*-autofill-hints` attributes.
  */
 private val SUPPORTED_HTML_ATTRIBUTE_HINTS: List<String> = listOf(
     "name",

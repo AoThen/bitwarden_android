@@ -58,6 +58,7 @@ fun VaultAddEditState.ViewState.Content.toCipherView(
         revisionDate = common.originalCipher?.revisionDate ?: clock.instant(),
         archivedDate = common.originalCipher?.archivedDate?.takeIf { isPremiumUser },
         attachmentDecryptionFailures = common.originalCipher?.attachmentDecryptionFailures,
+        partial = false,
 
         // Type specific section
         type = type.toCipherType(),
@@ -126,13 +127,13 @@ private fun VaultAddEditState.ViewState.Content.ItemType.toDriversLicense(): Dri
             firstName = it.firstName.orNullIfBlank(),
             middleName = it.middleName.orNullIfBlank(),
             lastName = it.lastName.orNullIfBlank(),
-            dateOfBirth = it.dateOfBirth?.toString(),
+            dateOfBirth = it.dateOfBirth,
             licenseNumber = it.licenseNumber.orNullIfBlank(),
             issuingCountry = it.issuingCountry.orNullIfBlank(),
             issuingState = it.issuingState.orNullIfBlank(),
-            issueDate = it.issueDate?.toString(),
+            issueDate = it.issueDate,
             issuingAuthority = it.issuingAuthority.orNullIfBlank(),
-            expirationDate = it.expirationDate?.toString(),
+            expirationDate = it.expirationDate,
             licenseClass = it.licenseClass.orNullIfBlank(),
         )
     }
@@ -142,7 +143,7 @@ private fun VaultAddEditState.ViewState.Content.ItemType.toPassport(): PassportV
         PassportView(
             surname = it.surname.orNullIfBlank(),
             givenName = it.givenName.orNullIfBlank(),
-            dateOfBirth = it.dateOfBirth?.toString(),
+            dateOfBirth = it.dateOfBirth,
             birthPlace = it.birthPlace.orNullIfBlank(),
             sex = it.sex.orNullIfBlank(),
             nationality = it.nationality.orNullIfBlank(),
@@ -150,8 +151,8 @@ private fun VaultAddEditState.ViewState.Content.ItemType.toPassport(): PassportV
             passportType = it.passportType.orNullIfBlank(),
             issuingCountry = it.issuingCountry.orNullIfBlank(),
             issuingAuthority = it.issuingAuthority.orNullIfBlank(),
-            issueDate = it.issueDate?.toString(),
-            expirationDate = it.expirationDate?.toString(),
+            issueDate = it.issueDate,
+            expirationDate = it.expirationDate,
             nationalIdentificationNumber = it.nationalIdentificationNumber.orNullIfBlank(),
         )
     }

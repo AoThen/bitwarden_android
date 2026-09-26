@@ -25,8 +25,8 @@ import com.bitwarden.core.data.util.asSuccess
 import com.bitwarden.data.repository.model.Environment
 import com.bitwarden.data.repository.util.baseIconUrl
 import com.bitwarden.data.repository.util.baseWebSendUrl
+import com.bitwarden.policies.Policy
 import com.bitwarden.policies.PolicyType
-import com.bitwarden.policies.PolicyView
 import com.bitwarden.send.SendType
 import com.bitwarden.ui.platform.base.BaseViewModelTest
 import com.bitwarden.ui.platform.components.account.model.AccountSummary
@@ -78,6 +78,7 @@ import com.x8bit.bitwarden.data.platform.manager.SpecialCircumstanceManagerImpl
 import com.x8bit.bitwarden.data.platform.manager.ciphermatching.CipherMatchingManager
 import com.x8bit.bitwarden.data.platform.manager.clipboard.BitwardenClipboardManager
 import com.x8bit.bitwarden.data.platform.manager.event.OrganizationEventManager
+import com.x8bit.bitwarden.data.platform.manager.model.EffectiveSendPolicy
 import com.x8bit.bitwarden.data.platform.manager.model.FirstTimeState
 import com.x8bit.bitwarden.data.platform.manager.model.OrganizationEvent
 import com.x8bit.bitwarden.data.platform.manager.model.SpecialCircumstance
@@ -95,8 +96,8 @@ import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockDriversLice
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockFolderView
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockLoginListView
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockPassportView
-import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockPolicyView
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSdkFido2CredentialList
+import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSdkPolicy
 import com.x8bit.bitwarden.data.vault.datasource.sdk.model.createMockSendView
 import com.x8bit.bitwarden.data.vault.manager.model.GetCipherResult
 import com.x8bit.bitwarden.data.vault.repository.VaultRepository
@@ -199,7 +200,7 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
         coEvery { getCipher(any()) } returns GetCipherResult.Success(createMockCipherView(1))
     }
     private val environmentRepository: EnvironmentRepository = mockk {
-        every { environment } returns Environment.Us
+        every { environment } returns Environment.Prod.Us
         every { environmentStateFlow } returns mockk()
     }
 
@@ -218,11 +219,11 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
             authRepository = mockAuthRepository,
             dispatcherManager = FakeDispatcherManager(),
         )
-    private val mutableActivePoliciesFlow: MutableStateFlow<List<PolicyView>> =
+    private val mutableActivePoliciesFlow: MutableStateFlow<List<Policy>> =
         MutableStateFlow(emptyList())
     private val policyManager: PolicyManager = mockk {
-        every { getActivePolicies(type = PolicyType.DISABLE_SEND) } returns emptyList()
-        every { getActivePoliciesFlow(type = PolicyType.DISABLE_SEND) } returns emptyFlow()
+        every { getEffectiveSendPolicy() } returns DEFAULT_EFFECTIVE_SEND_POLICY
+        every { getEffectiveSendPolicyFlow() } returns emptyFlow()
         every {
             getActivePoliciesFlow(type = PolicyType.RESTRICTED_ITEM_TYPES)
         } returns mutableActivePoliciesFlow
@@ -306,8 +307,10 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
         every { isInAppUpgradeAvailable() } returns false
     }
     private val mutableNewItemTypesFlow = MutableStateFlow(false)
+    private val mutableVfo1FoundationFlagFlow = MutableStateFlow(true)
     private val featureFlagManager: FeatureFlagManager = mockk {
         every { getFeatureFlag(FlagKey.NewItemTypes) } answers { mutableNewItemTypesFlow.value }
+        every { getFeatureFlagFlow(FlagKey.Vfo1Foundation) } returns mutableVfo1FoundationFlagFlow
     }
 
     @BeforeEach
@@ -394,7 +397,7 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
             )
             mutableActivePoliciesFlow.emit(
                 listOf(
-                    createMockPolicyView(
+                    createMockSdkPolicy(
                         organizationId = "Test Organization",
                         id = "testId",
                         type = PolicyType.RESTRICTED_ITEM_TYPES,
@@ -1680,7 +1683,7 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
             )
             mutableActivePoliciesFlow.emit(
                 listOf(
-                    createMockPolicyView(
+                    createMockSdkPolicy(
                         organizationId = "Test Organization",
                         id = "testId",
                         type = PolicyType.RESTRICTED_ITEM_TYPES,
@@ -1720,7 +1723,7 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
             )
             mutableActivePoliciesFlow.emit(
                 listOf(
-                    createMockPolicyView(
+                    createMockSdkPolicy(
                         organizationId = "Test Organization",
                         id = "testId",
                         type = PolicyType.RESTRICTED_ITEM_TYPES,
@@ -1914,6 +1917,33 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
             )
         }
     }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `ItemTypeToAddSelected sends NavigateToAddVaultItem with the collection ID when viewing a collection`() =
+        runTest {
+            val viewModel = createVaultItemListingViewModel(
+                savedStateHandle = createSavedStateHandleWithVaultItemListingType(
+                    vaultItemListingType = VaultItemListingType.Collection(
+                        collectionId = "mockId-1",
+                    ),
+                ),
+            )
+            viewModel.eventFlow.test {
+                viewModel.trySendAction(
+                    VaultItemListingsAction.ItemTypeToAddSelected(
+                        itemType = CreateVaultItemType.LOGIN,
+                    ),
+                )
+                assertEquals(
+                    VaultItemListingEvent.NavigateToAddVaultItem(
+                        vaultItemCipherType = VaultItemCipherType.LOGIN,
+                        selectedCollectionId = "mockId-1",
+                    ),
+                    awaitItem(),
+                )
+            }
+        }
 
     @Test
     fun `FolderClick for vault item should emit NavigateToFolderItem`() = runTest {
@@ -2726,6 +2756,67 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
         )
     }
 
+    @Test
+    @Suppress("MaxLineLength")
+    fun `Vfo1FoundationFlagUpdateReceive should re-derive the view state using the latest vault data`() =
+        runTest {
+            setupMockUri()
+
+            val dataState = DataState.Loaded(
+                data = VaultData(
+                    decryptCipherListResult = createMockDecryptCipherListResult(
+                        number = 1,
+                        successes = listOf(createMockCipherListView(number = 1, isDeleted = false)),
+                    ),
+                    folderViewList = listOf(createMockFolderView(number = 1)),
+                    collectionViewList = listOf(createMockCollectionView(number = 1)),
+                    sendViewList = listOf(createMockSendView(number = 1)),
+                ),
+            )
+
+            val viewModel = createVaultItemListingViewModel()
+
+            mutableVaultDataStateFlow.tryEmit(value = dataState)
+
+            mutableVfo1FoundationFlagFlow.value = false
+
+            assertEquals(
+                createVaultItemListingState(
+                    isVfo1FoundationEnabled = false,
+                    viewState = VaultItemListingState.ViewState.Content(
+                        displayCollectionList = emptyList(),
+                        displayItemList = listOf(
+                            createMockDisplayItemForCipher(
+                                number = 1,
+                                secondSubtitleTestTag = "PasskeySite",
+                                subtitle = "mockSubtitle-1",
+                            )
+                                .copy(
+                                    extraIconList = persistentListOf(
+                                        IconData.Local(
+                                            iconRes = BitwardenDrawable.ic_collections,
+                                            contentDescription = BitwardenString
+                                                .collections
+                                                .asText(),
+                                            testTag = "CipherInCollectionIcon",
+                                        ),
+                                        IconData.Local(
+                                            iconRes = BitwardenDrawable.ic_paperclip,
+                                            contentDescription = BitwardenString
+                                                .attachments
+                                                .asText(),
+                                            testTag = "CipherWithAttachmentsIcon",
+                                        ),
+                                    ),
+                                ),
+                        ),
+                        displayFolderList = emptyList(),
+                    ),
+                ),
+                viewModel.stateFlow.value,
+            )
+        }
+
     @Suppress("MaxLineLength")
     @Test
     fun `vaultDataStateFlow Loaded with items and autofill filtering should update ViewState to Content with filtered data`() =
@@ -2804,6 +2895,76 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
                                     uri = "https://icons.bitwarden.net/www.mockuri.com/icon.png",
                                     fallbackIconRes = BitwardenDrawable.ic_bw_passkey,
                                 ),
+                                isAutofill = true,
+                            ),
+                        ),
+                        displayFolderList = emptyList(),
+                    ),
+                )
+                    .copy(autofillSelectionData = autofillSelectionData),
+                viewModel.stateFlow.value,
+            )
+        }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `vaultDataStateFlow Loaded with items and autofill filtering for Identity should update ViewState to Content with filtered data`() =
+        runTest {
+            setupMockUri()
+
+            val cipherView1 = createMockCipherListView(
+                number = 1,
+                type = CipherListViewType.Identity,
+            )
+            val cipherView2 = createMockCipherListView(
+                number = 2,
+                type = CipherListViewType.Login(
+                    createMockLoginListView(number = 2),
+                ),
+            )
+
+            val autofillSelectionData = AutofillSelectionData(
+                type = AutofillSelectionData.Type.IDENTITY,
+                framework = AutofillSelectionData.Framework.AUTOFILL,
+                uri = "https://www.test.com",
+            )
+            specialCircumstanceManager.specialCircumstance =
+                SpecialCircumstance.AutofillSelection(
+                    autofillSelectionData = autofillSelectionData,
+                    shouldFinishWhenComplete = true,
+                )
+            val dataState = DataState.Loaded(
+                data = VaultData(
+                    decryptCipherListResult = createMockDecryptCipherListResult(
+                        number = 1,
+                        successes = listOf(cipherView1, cipherView2),
+                    ),
+                    folderViewList = listOf(createMockFolderView(number = 1)),
+                    collectionViewList = listOf(createMockCollectionView(number = 1)),
+                    sendViewList = listOf(createMockSendView(number = 1)),
+                ),
+            )
+
+            val viewModel = createVaultItemListingViewModel(
+                savedStateHandle = createSavedStateHandleWithVaultItemListingType(
+                    vaultItemListingType = VaultItemListingType.Identity,
+                ),
+            )
+
+            mutableVaultDataStateFlow.value = dataState
+
+            assertEquals(
+                createVaultItemListingState(
+                    itemListingType = VaultItemListingState.ItemListingType.Vault.Identity,
+                    viewState = VaultItemListingState.ViewState.Content(
+                        displayCollectionList = emptyList(),
+                        displayItemList = listOf(
+                            createMockDisplayItemForCipher(
+                                number = 1,
+                                cipherType = CipherType.IDENTITY,
+                                subtitle = "mockSubtitle-1",
+                                secondSubtitleTestTag = "PasskeySite",
+                                subtitleTestTag = "PasswordName",
                                 isAutofill = true,
                             ),
                         ),
@@ -6592,6 +6753,18 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
     }
 
     @Test
+    fun `viewModel should subscribe to the folder created snackbar relay`() {
+        createVaultItemListingViewModel()
+
+        verify(exactly = 1) {
+            snackbarRelayManager.getSnackbarDataFlow(
+                relay = any(),
+                relays = varargAny { it == SnackbarRelay.FOLDER_CREATED },
+            )
+        }
+    }
+
+    @Test
     fun `BankAccount listing type should display the FAB`() {
         assertTrue(VaultItemListingState.ItemListingType.Vault.BankAccount.hasFab)
     }
@@ -6663,6 +6836,7 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
         viewState: VaultItemListingState.ViewState = VaultItemListingState.ViewState.Loading,
         dialogState: VaultItemListingState.DialogState? = null,
         isPremium: Boolean = true,
+        isVfo1FoundationEnabled: Boolean = true,
     ): VaultItemListingState =
         VaultItemListingState(
             itemListingType = itemListingType,
@@ -6670,8 +6844,8 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
             accountSummaries = DEFAULT_USER_STATE.toAccountSummaries(),
             viewState = viewState,
             vaultFilterType = vaultRepository.vaultFilterType,
-            baseWebSendUrl = Environment.Us.environmentUrlData.baseWebSendUrl,
-            baseIconUrl = environmentRepository.environment.environmentUrlData.baseIconUrl,
+            baseWebSendUrl = Environment.Prod.Us.baseWebSendUrl,
+            baseIconUrl = environmentRepository.environment.baseIconUrl,
             isIconLoadingDisabled = settingsRepository.isIconLoadingDisabled,
             isPullToRefreshSettingEnabled = false,
             dialogState = dialogState,
@@ -6683,6 +6857,7 @@ class VaultItemListingViewModelTest : BaseViewModelTest() {
             isPremium = isPremium,
             isRefreshing = false,
             restrictItemTypesPolicyOrgIds = persistentListOf(),
+            isVfo1FoundationEnabled = isVfo1FoundationEnabled,
         )
 }
 
@@ -6690,7 +6865,7 @@ private val DEFAULT_ACCOUNT = UserState.Account(
     userId = "activeUserId",
     name = "Active User",
     email = "active@bitwarden.com",
-    environment = Environment.Us,
+    environment = Environment.Prod.Us,
     avatarColorHex = "#aa00aa",
     isPremium = true,
     isPremiumFromSelf = true,
@@ -6712,6 +6887,15 @@ private val DEFAULT_ACCOUNT = UserState.Account(
 private val DEFAULT_USER_STATE = UserState(
     activeUserId = "activeUserId",
     accounts = listOf(DEFAULT_ACCOUNT),
+)
+
+private val DEFAULT_EFFECTIVE_SEND_POLICY = EffectiveSendPolicy(
+    allowedDomains = null,
+    allowedSendTypes = null,
+    deletionHours = null,
+    disableHideEmail = false,
+    disableSend = false,
+    whoCanAccess = null,
 )
 
 private const val DEFAULT_RELYING_PARTY_ID = "www.bitwarden.com"

@@ -78,6 +78,7 @@ fun NavGraphBuilder.vaultAddEditDestination(
     onNavigateToAttachments: (cipherId: String) -> Unit,
     onNavigateToMoveToOrganization: (cipherId: String, showOnlyCollections: Boolean) -> Unit,
     onNavigateToPlan: () -> Unit,
+    onCloseAndNavigateToVaultItem: (cipherId: String, cipherType: VaultItemCipherType) -> Unit,
 ) {
     composableWithSlideTransitions<VaultAddEditRoute> {
         VaultAddEditScreen(
@@ -89,6 +90,7 @@ fun NavGraphBuilder.vaultAddEditDestination(
             onNavigateToAttachments = onNavigateToAttachments,
             onNavigateToMoveToOrganization = onNavigateToMoveToOrganization,
             onNavigateToPlan = onNavigateToPlan,
+            onCloseAndNavigateToVaultItem = onCloseAndNavigateToVaultItem,
         )
     }
 }
@@ -110,7 +112,7 @@ fun NavController.navigateToVaultAddEdit(
             vaultItemId = args.vaultAddEditType.vaultItemId,
             vaultItemCipherType = args.vaultItemCipherType,
             selectedFolderId = args.selectedFolderId,
-            selectedCollectionId = args.selectedFolderId,
+            selectedCollectionId = args.selectedCollectionId,
         ),
         navOptions = navOptions,
     )

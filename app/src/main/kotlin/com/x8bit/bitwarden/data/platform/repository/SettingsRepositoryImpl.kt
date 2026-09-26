@@ -5,8 +5,9 @@ import com.bitwarden.authenticatorbridge.util.generateSecretKey
 import com.bitwarden.core.data.manager.BuildInfoManager
 import com.bitwarden.core.data.manager.dispatcher.DispatcherManager
 import com.bitwarden.data.manager.flightrecorder.FlightRecorderManager
+import com.bitwarden.policies.Policy
 import com.bitwarden.policies.PolicyType
-import com.bitwarden.policies.PolicyView
+import com.bitwarden.ui.platform.feature.settings.appearance.model.AppLanguage
 import com.bitwarden.ui.platform.feature.settings.appearance.model.AppTheme
 import com.x8bit.bitwarden.BuildConfig
 import com.x8bit.bitwarden.data.auth.datasource.disk.AuthDiskSource
@@ -24,7 +25,6 @@ import com.x8bit.bitwarden.data.platform.repository.model.UriMatchType
 import com.x8bit.bitwarden.data.platform.repository.model.VaultTimeout
 import com.x8bit.bitwarden.data.platform.repository.model.VaultTimeoutAction
 import com.x8bit.bitwarden.data.vault.datasource.sdk.VaultSdkSource
-import com.x8bit.bitwarden.ui.platform.feature.settings.appearance.model.AppLanguage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -294,15 +294,22 @@ class SettingsRepositoryImpl(
     override val isUnlockWithPinEnabledFlow: Flow<Boolean>
         get() = activeUserId
             ?.let { userId ->
-                authDiskSource
-                    .getPinProtectedUserKeyFlow(userId)
-                    .combine(
-                        authDiskSource.getPinProtectedUserKeyEnvelopeFlow(userId),
-                    ) { pinProtectedUserKey, pinProtectedUserKeyEnvelope ->
-                        pinProtectedUserKey != null || pinProtectedUserKeyEnvelope != null
-                    }
+                combine(
+                    authDiskSource.getPinProtectedUserKeyFlow(userId = userId),
+                    authDiskSource.getEphemeralPinProtectedUserKeyEnvelopeFlow(userId = userId),
+                    authDiskSource.getPersistentPinProtectedUserKeyEnvelopeFlow(userId = userId),
+                ) { pinUserKey, ephemeralPinUserKeyEnvelope, persistentPinUserKeyEnvelope ->
+                    pinUserKey != null ||
+                        ephemeralPinUserKeyEnvelope != null ||
+                        persistentPinUserKeyEnvelope != null
+                }
             }
             ?: flowOf(false)
+
+    override val isPasswordOnRestartRequiredWithPin: Boolean
+        get() = activeUserId
+            ?.let { authDiskSource.getEphemeralPinProtectedUserKeyEnvelope(userId = it) != null }
+            ?: false
 
     override var isInlineAutofillEnabled: Boolean
         get() = activeUserId
@@ -327,6 +334,15 @@ class SettingsRepositoryImpl(
                 isFillAssistEnabled = value,
             )
         }
+
+    override val isFillAssistEnabledFlow: Flow<Boolean>
+        get() = activeUserId
+            ?.let { userId ->
+                settingsDiskSource
+                    .getFillAssistEnabledFlow(userId = userId)
+                    .map { it ?: false }
+            }
+            ?: flowOf(false)
 
     override var isAutoCopyTotpDisabled: Boolean
         get() = activeUserId
@@ -618,17 +634,21 @@ class SettingsRepositoryImpl(
                                 userId = userId,
                                 encryptedPin = enrollPinResponse.userKeyEncryptedPin,
                             )
-                            storePinProtectedUserKeyEnvelope(
-                                userId = userId,
-                                pinProtectedUserKeyEnvelope =
-                                    enrollPinResponse.pinProtectedUserKeyEnvelope,
-                                inMemoryOnly = shouldRequireMasterPasswordOnRestart,
-                            )
+                            if (shouldRequireMasterPasswordOnRestart) {
+                                storeEphemeralPinProtectedUserKeyEnvelope(
+                                    userId = userId,
+                                    pinProtectedUserKeyEnvelope = enrollPinResponse
+                                        .pinProtectedUserKeyEnvelope,
+                                )
+                            } else {
+                                storePersistentPinProtectedUserKeyEnvelope(
+                                    userId = userId,
+                                    pinProtectedUserKeyEnvelope = enrollPinResponse
+                                        .pinProtectedUserKeyEnvelope,
+                                )
+                            }
                             // Remove any legacy pin protected user keys.
-                            storePinProtectedUserKey(
-                                userId = userId,
-                                pinProtectedUserKey = null,
-                            )
+                            storePinProtectedUserKey(userId = userId, pinProtectedUserKey = null)
                         }
                     },
                     onFailure = {
@@ -643,18 +663,16 @@ class SettingsRepositoryImpl(
     override fun clearUnlockPin() {
         val userId = activeUserId ?: return
         authDiskSource.apply {
-            storeEncryptedPin(
-                userId = userId,
-                encryptedPin = null,
-            )
-            authDiskSource.storePinProtectedUserKeyEnvelope(
+            storeEncryptedPin(userId = userId, encryptedPin = null)
+            storeEphemeralPinProtectedUserKeyEnvelope(
                 userId = userId,
                 pinProtectedUserKeyEnvelope = null,
             )
-            authDiskSource.storePinProtectedUserKey(
+            storePersistentPinProtectedUserKeyEnvelope(
                 userId = userId,
-                pinProtectedUserKey = null,
+                pinProtectedUserKeyEnvelope = null,
             )
+            storePinProtectedUserKey(userId = userId, pinProtectedUserKey = null)
         }
     }
 
@@ -705,7 +723,7 @@ class SettingsRepositoryImpl(
      * settings to determine whether to update the user's settings.
      */
     private fun updateVaultUnlockSettingsIfNecessary(
-        policies: List<PolicyView>,
+        policies: List<Policy>,
     ) {
         // The vault timeout policy can only be implemented in organizations that have
         // the single organization policy, meaning that if this is enabled, the user is

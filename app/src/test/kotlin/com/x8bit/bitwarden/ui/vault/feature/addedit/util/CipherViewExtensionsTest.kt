@@ -39,6 +39,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -102,7 +104,7 @@ class CipherViewExtensionsTest {
                         ),
                     ),
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                 ),
                 isIndividualVaultDisabled = false,
                 type = VaultAddEditState.ViewState.Content.ItemType.Card(
@@ -151,7 +153,7 @@ class CipherViewExtensionsTest {
                         ),
                     ),
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                 ),
                 isIndividualVaultDisabled = true,
                 type = VaultAddEditState.ViewState.Content.ItemType.Identity(
@@ -196,7 +198,7 @@ class CipherViewExtensionsTest {
                     masterPasswordReprompt = true,
                     notes = "Lots of notes",
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                     customFieldData = listOf(
                         VaultAddEditState.Custom.BooleanField(TEST_ID, "TestBoolean", false),
                         VaultAddEditState.Custom.TextField(TEST_ID, "TestText", "TestText"),
@@ -258,7 +260,7 @@ class CipherViewExtensionsTest {
                     masterPasswordReprompt = true,
                     notes = "Lots of notes",
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                     customFieldData = listOf(
                         VaultAddEditState.Custom.BooleanField(TEST_ID, "TestBoolean", false),
                         VaultAddEditState.Custom.TextField(TEST_ID, "TestText", "TestText"),
@@ -322,7 +324,7 @@ class CipherViewExtensionsTest {
                         VaultAddEditState.Custom.HiddenField(TEST_ID, "TestHidden", "TestHidden"),
                     ),
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                 ),
                 isIndividualVaultDisabled = true,
                 type = VaultAddEditState.ViewState.Content.ItemType.SecureNotes,
@@ -365,7 +367,7 @@ class CipherViewExtensionsTest {
                         ),
                     ),
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                 ),
                 isIndividualVaultDisabled = false,
                 type = VaultAddEditState.ViewState.Content.ItemType.SshKey(
@@ -407,7 +409,7 @@ class CipherViewExtensionsTest {
                         VaultAddEditState.Custom.HiddenField(TEST_ID, "TestHidden", "TestHidden"),
                     ),
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                 ),
                 isIndividualVaultDisabled = false,
                 type = VaultAddEditState.ViewState.Content.ItemType.Passport(
@@ -459,7 +461,7 @@ class CipherViewExtensionsTest {
                         VaultAddEditState.Custom.HiddenField(TEST_ID, "TestHidden", "TestHidden"),
                     ),
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                 ),
                 isIndividualVaultDisabled = false,
                 type = VaultAddEditState.ViewState.Content.ItemType.SecureNotes,
@@ -497,7 +499,7 @@ class CipherViewExtensionsTest {
                         VaultAddEditState.Custom.HiddenField(TEST_ID, "TestHidden", "TestHidden"),
                     ),
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                     archiveCalloutText = BitwardenString.this_item_is_archived.asText(),
                 ),
                 isIndividualVaultDisabled = false,
@@ -539,7 +541,7 @@ class CipherViewExtensionsTest {
                         VaultAddEditState.Custom.HiddenField(TEST_ID, "TestHidden", "TestHidden"),
                     ),
                     availableFolders = emptyList(),
-                    availableOwners = emptyList(),
+                    availableOwners = persistentListOf(),
                     archiveCalloutText = BitwardenString
                         .this_item_is_archived_saving_changes_will_restore_it_to_your_vault
                         .asText(),
@@ -620,6 +622,7 @@ class CipherViewExtensionsTest {
             activeAccount = account,
             isIndividualVaultDisabled = false,
             resourceManager = resourceManager,
+            isVfo1FoundationEnabled = true,
         )
 
         val expected = createSecureNoteViewState(
@@ -664,6 +667,7 @@ class CipherViewExtensionsTest {
             activeAccount = account,
             isIndividualVaultDisabled = true,
             resourceManager = resourceManager,
+            isVfo1FoundationEnabled = true,
         )
 
         val expected = createSecureNoteViewState(
@@ -678,8 +682,77 @@ class CipherViewExtensionsTest {
         )
     }
 
+    @Suppress("MaxLineLength")
+    @Test
+    fun `appendFolderAndOwnerData should default the owner to the selected collection's organization`() {
+        val viewState = createSecureNoteViewState(
+            cipherView = null,
+            availableOwners = listOf(USER_OWNER, ORGANIZATION_OWNER),
+            availableFolders = emptyList(),
+            selectedOwnerId = null,
+            selectedFolderId = null,
+            selectedCollectionId = "mockId-1",
+        )
+        val account = createAccount()
+        val collectionList = listOf(createMockCollectionView(number = 1))
+
+        val result = viewState.appendFolderAndOwnerData(
+            folderViewList = emptyList(),
+            collectionViewList = collectionList,
+            activeAccount = account,
+            isIndividualVaultDisabled = false,
+            resourceManager = resourceManager,
+            isVfo1FoundationEnabled = true,
+        )
+
+        val expected = createSecureNoteViewState(
+            cipherView = null,
+            availableOwners = listOf(USER_OWNER, ORGANIZATION_OWNER),
+            availableFolders = listOf(NO_FOLDER_ITEM),
+            selectedOwnerId = ORGANIZATION_OWNER.id,
+            selectedFolderId = null,
+            selectedCollectionId = "mockId-1",
+        )
+        assertEquals(expected, result)
+    }
+
+    @Suppress("MaxLineLength")
+    @Test
+    fun `appendFolderAndOwnerData should leave the owner unselected when no collection is selected`() {
+        val viewState = createSecureNoteViewState(
+            cipherView = null,
+            availableOwners = listOf(USER_OWNER, ORGANIZATION_OWNER),
+            availableFolders = emptyList(),
+            selectedOwnerId = null,
+            selectedFolderId = null,
+            selectedCollectionId = null,
+        )
+        val account = createAccount()
+        val collectionList = listOf(createMockCollectionView(number = 1))
+
+        val result = viewState.appendFolderAndOwnerData(
+            folderViewList = emptyList(),
+            collectionViewList = collectionList,
+            activeAccount = account,
+            isIndividualVaultDisabled = false,
+            resourceManager = resourceManager,
+            isVfo1FoundationEnabled = true,
+        )
+
+        val expected = createSecureNoteViewState(
+            cipherView = null,
+            availableOwners = listOf(USER_OWNER, ORGANIZATION_OWNER_UNSELECTED_COLLECTION),
+            availableFolders = listOf(NO_FOLDER_ITEM),
+            selectedOwnerId = null,
+            selectedFolderId = null,
+            selectedCollectionId = null,
+        )
+        assertEquals(expected, result)
+    }
+
+    @Suppress("LongParameterList")
     private fun createSecureNoteViewState(
-        cipherView: CipherView = createMockCipherView(number = 1),
+        cipherView: CipherView? = createMockCipherView(number = 1),
         availableOwners: List<VaultAddEditState.Owner> = listOf(
             USER_OWNER,
             ORGANIZATION_OWNER,
@@ -690,6 +763,7 @@ class CipherViewExtensionsTest {
         ),
         selectedFolderId: String? = availableFolders.firstOrNull()?.id,
         selectedOwnerId: String? = availableOwners.firstOrNull()?.id,
+        selectedCollectionId: String? = null,
     ): VaultAddEditState.ViewState.Content =
         VaultAddEditState.ViewState.Content(
             common = VaultAddEditState.ViewState.Content.Common(
@@ -716,14 +790,15 @@ class CipherViewExtensionsTest {
                     ),
                 ),
                 availableFolders = emptyList(),
-                availableOwners = emptyList(),
+                availableOwners = persistentListOf(),
+                selectedCollectionId = selectedCollectionId,
             )
                 .let {
                     if (availableOwners.isNotEmpty()) {
                         it.copy(
                             selectedOwnerId = selectedOwnerId,
                             hasOrganizations = true,
-                            availableOwners = availableOwners,
+                            availableOwners = availableOwners.toImmutableList(),
                         )
                     } else {
                         it
@@ -749,7 +824,7 @@ class CipherViewExtensionsTest {
             name = "activeName",
             email = "activeEmail",
             avatarColorHex = "#ffecbc49",
-            environment = Environment.Eu,
+            environment = Environment.Prod.Eu,
             isPremium = true,
             isPremiumFromSelf = true,
             isLoggedIn = false,
@@ -843,6 +918,7 @@ private val DEFAULT_BASE_CIPHER_VIEW: CipherView = CipherView(
     archivedDate = null,
     sshKey = null,
     attachmentDecryptionFailures = null,
+    partial = false,
 )
 
 private val DEFAULT_CARD_CIPHER_VIEW: CipherView = DEFAULT_BASE_CIPHER_VIEW.copy(
@@ -959,7 +1035,7 @@ private val DEFAULT_PASSPORT_CIPHER_VIEW: CipherView = DEFAULT_BASE_CIPHER_VIEW.
     passport = PassportView(
         surname = "the surname",
         givenName = "the given name",
-        dateOfBirth = "1990-08-10",
+        dateOfBirth = LocalDate.parse("1990-08-10"),
         birthPlace = "the birth place",
         sex = "the sex",
         nationality = "the nationality",
@@ -967,8 +1043,8 @@ private val DEFAULT_PASSPORT_CIPHER_VIEW: CipherView = DEFAULT_BASE_CIPHER_VIEW.
         passportType = "the passport type",
         issuingCountry = "the issuing country",
         issuingAuthority = "the issuing authority",
-        issueDate = "2021-03-20",
-        expirationDate = "2031-03-20",
+        issueDate = LocalDate.parse("2021-03-20"),
+        expirationDate = LocalDate.parse("2031-03-20"),
         nationalIdentificationNumber = "the national identification number",
     ),
 )
@@ -984,7 +1060,7 @@ private val MOCK_FOLDER_ITEM = VaultAddEditState.Folder(
 )
 private val ORGANIZATION_OWNER = VaultAddEditState.Owner(
     id = "mockOrganizationId-1",
-    name = "organizationName",
+    name = "organizationName".asText(),
     collections = listOf(
         VaultCollection(
             id = "mockId-1",
@@ -997,7 +1073,7 @@ private val ORGANIZATION_OWNER = VaultAddEditState.Owner(
 
 private val ORGANIZATION_OWNER_DEFAULT_COLLECTION = VaultAddEditState.Owner(
     id = "mockOrganizationId-1",
-    name = "organizationName",
+    name = "organizationName".asText(),
     collections = listOf(
         VaultCollection(
             id = "mockId-1",
@@ -1007,8 +1083,21 @@ private val ORGANIZATION_OWNER_DEFAULT_COLLECTION = VaultAddEditState.Owner(
         ),
     ),
 )
+private val ORGANIZATION_OWNER_UNSELECTED_COLLECTION = VaultAddEditState.Owner(
+    id = "mockOrganizationId-1",
+    name = "organizationName".asText(),
+    collections = listOf(
+        VaultCollection(
+            id = "mockId-1",
+            name = "mockName-1",
+            isSelected = false,
+            isDefaultUserCollection = false,
+        ),
+    ),
+)
+
 private val USER_OWNER = VaultAddEditState.Owner(
     id = null,
-    name = "activeEmail",
+    name = BitwardenString.my_vault.asText(),
     collections = emptyList(),
 )

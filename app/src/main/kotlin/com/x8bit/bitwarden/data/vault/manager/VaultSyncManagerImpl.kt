@@ -2,6 +2,7 @@ package com.x8bit.bitwarden.data.vault.manager
 
 import com.bitwarden.collections.CollectionView
 import com.bitwarden.core.InitOrgCryptoRequest
+import com.bitwarden.core.ReinitUserCryptoRequest
 import com.bitwarden.core.data.manager.dispatcher.DispatcherManager
 import com.bitwarden.core.data.repository.model.DataState
 import com.bitwarden.core.data.repository.util.combineDataStates
@@ -15,12 +16,12 @@ import com.bitwarden.vault.DecryptCipherListResult
 import com.bitwarden.vault.FolderView
 import com.x8bit.bitwarden.data.auth.datasource.disk.AuthDiskSource
 import com.x8bit.bitwarden.data.auth.manager.UserLogoutManager
-import com.x8bit.bitwarden.data.autofill.manager.FillAssistManager
 import com.x8bit.bitwarden.data.auth.manager.UserStateManager
 import com.x8bit.bitwarden.data.auth.repository.model.LogoutReason
 import com.x8bit.bitwarden.data.auth.repository.util.toAccountCryptographicState
 import com.x8bit.bitwarden.data.auth.repository.util.toUpdatedUserStateJson
 import com.x8bit.bitwarden.data.auth.repository.util.userSwitchingChangesFlow
+import com.x8bit.bitwarden.data.autofill.manager.FillAssistManager
 import com.x8bit.bitwarden.data.platform.datasource.disk.SettingsDiskSource
 import com.x8bit.bitwarden.data.platform.error.NoActiveUserException
 import com.x8bit.bitwarden.data.platform.error.SecurityStampMismatchException
@@ -41,6 +42,7 @@ import com.x8bit.bitwarden.data.vault.repository.util.toEncryptedSdkCipherList
 import com.x8bit.bitwarden.data.vault.repository.util.toEncryptedSdkCollectionList
 import com.x8bit.bitwarden.data.vault.repository.util.toEncryptedSdkFolderList
 import com.x8bit.bitwarden.data.vault.repository.util.toEncryptedSdkSendList
+import com.x8bit.bitwarden.data.vault.repository.util.toV2UpgradeToken
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -75,7 +77,7 @@ private const val SYNC_IF_NECESSARY_DELAY_MIN: Long = 30L
  * Default implementation of [VaultSyncManager].
  */
 @Suppress("LongParameterList", "TooManyFunctions")
-class VaultSyncManagerImpl(
+internal class VaultSyncManagerImpl(
     private val syncService: SyncService,
     private val settingsDiskSource: SettingsDiskSource,
     private val authDiskSource: AuthDiskSource,
@@ -375,20 +377,33 @@ class VaultSyncManagerImpl(
         )
     }
 
-    private fun storeProfileData(
+    private suspend fun storeProfileData(
         syncResponse: SyncResponseJson,
     ) {
         val profile = syncResponse.profile
         val userId = profile.id
         authDiskSource.apply {
+            val accountCryptographicState = profile.privateKeyOrNull()?.let {
+                profile.accountKeys.toAccountCryptographicState(privateKey = it)
+            }
+            val v2UpgradeToken = syncResponse.userDecryption?.v2UpgradeToken
             storeAccountCryptographicState(
                 userId = userId,
-                accountCryptographicState = profile.privateKeyOrNull()?.let {
-                    profile.accountKeys.toAccountCryptographicState(
-                        privateKey = it,
-                    )
-                },
+                accountCryptographicState = accountCryptographicState,
             )
+            storeV2UpgradeToken(userId = userId, v2UpgradeToken = v2UpgradeToken)
+            if (accountCryptographicState != null &&
+                v2UpgradeToken != null &&
+                vaultLockManager.isVaultUnlocked(userId = userId)
+            ) {
+                vaultSdkSource.reinitializeCrypto(
+                    userId = userId,
+                    request = ReinitUserCryptoRequest(
+                        accountCryptographicState = accountCryptographicState,
+                        upgradeToken = v2UpgradeToken.toV2UpgradeToken(),
+                    ),
+                )
+            }
             storeOrganizationKeys(
                 userId = userId,
                 organizationKeys = profile.organizations

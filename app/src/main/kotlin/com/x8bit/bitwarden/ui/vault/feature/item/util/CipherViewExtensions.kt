@@ -14,7 +14,7 @@ import com.bitwarden.ui.util.asText
 import com.bitwarden.vault.CardView
 import com.bitwarden.vault.CipherType
 import com.bitwarden.vault.CipherView
-import com.bitwarden.vault.Fido2Credential
+import com.bitwarden.vault.Fido2CredentialView
 import com.bitwarden.vault.FieldType
 import com.bitwarden.vault.FieldView
 import com.bitwarden.vault.IdentityView
@@ -34,7 +34,6 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import java.time.Clock
 import java.time.LocalDate
-import java.time.format.DateTimeParseException
 import java.time.format.FormatStyle
 import java.util.Locale
 
@@ -306,22 +305,11 @@ fun FieldView.toCustomField(
     }
 
 /**
- * Takes a string date that is formatted in the default ISO-8601 format (uuuu-MM-dd) and converts
- * it to appropriate human-readable format.
+ * Takes a [LocalDate] and converts it to appropriate human-readable format.
  */
-private fun String.toFormattedDate(
+private fun LocalDate.toFormattedDate(
     clock: Clock,
-): String? {
-    val localDate = try {
-        LocalDate.parse(this)
-    } catch (_: DateTimeParseException) {
-        null
-    }
-    return localDate?.toFormattedDateStyle(
-        dateStyle = FormatStyle.LONG,
-        clock = clock,
-    )
-}
+): String = this.toFormattedDateStyle(dateStyle = FormatStyle.LONG, clock = clock)
 
 private fun LoginUriView.toUriData() =
     VaultItemState.ViewState.Content.ItemType.Login.UriData(
@@ -330,7 +318,7 @@ private fun LoginUriView.toUriData() =
         isLaunchable = !uri.isNullOrBlank(),
     )
 
-private fun Fido2Credential.getCreationDateText(clock: Clock): Text =
+private fun Fido2CredentialView.getCreationDateText(clock: Clock): Text =
     BitwardenString.created_x.asText(
         this.creationDate.toFormattedDateTimeStyle(
             dateStyle = FormatStyle.MEDIUM,
@@ -395,6 +383,22 @@ private val CardView.paymentCardBrandIconRes: Int?
             -> null
     }
 
+private val CardView.cardBrand: VaultCardBrand?
+    get() = brand
+        ?.findVaultCardBrandWithNameOrNull()
+        .takeUnless { it == VaultCardBrand.SELECT }
+
+private val CardView.expiration: String?
+    get() = listOfNotNull(
+        expMonth?.padStart(length = 2, padChar = '0'),
+        expYear,
+    )
+        .joinToString("/")
+        .orNullIfBlank()
+
+/**
+ * The full postal address for an [IdentityView], joining its address parts.
+ */
 private val IdentityView.identityAddress: String?
     get() = listOfNotNull(
         address1,
@@ -408,6 +412,9 @@ private val IdentityView.identityAddress: String?
         .joinToString("\n")
         .orNullIfBlank()
 
+/**
+ * The full name for an [IdentityView], joining its name parts.
+ */
 private val IdentityView.identityName: String?
     get() = listOfNotNull(
         title
@@ -420,17 +427,4 @@ private val IdentityView.identityName: String?
         lastName,
     )
         .joinToString(" ")
-        .orNullIfBlank()
-
-private val CardView.cardBrand: VaultCardBrand?
-    get() = brand
-        ?.findVaultCardBrandWithNameOrNull()
-        .takeUnless { it == VaultCardBrand.SELECT }
-
-private val CardView.expiration: String?
-    get() = listOfNotNull(
-        expMonth?.padStart(length = 2, padChar = '0'),
-        expYear,
-    )
-        .joinToString("/")
         .orNullIfBlank()

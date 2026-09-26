@@ -15,6 +15,7 @@ import com.bitwarden.network.model.SyncResponseJson
 import com.bitwarden.network.model.UriMatchTypeJson
 import com.bitwarden.vault.Attachment
 import com.bitwarden.vault.BankAccount
+import com.bitwarden.vault.BankAccountListView
 import com.bitwarden.vault.Card
 import com.bitwarden.vault.CardListView
 import com.bitwarden.vault.Cipher
@@ -42,12 +43,14 @@ import com.bitwarden.vault.UriMatchType
 
 /**
  * Converts a Bitwarden SDK [Cipher] object to a corresponding
- * [SyncResponseJson.Cipher] object.
+ * [CipherJsonRequest] object.
  *
  * @param encryptedFor The ID of the user who this cipher is encrypted by.
+ * @param encryptedByKeyId The ID of the key this cipher is encrypted by.
  */
 fun Cipher.toEncryptedNetworkCipher(
     encryptedFor: String,
+    encryptedByKeyId: String?,
 ): CipherJsonRequest =
     CipherJsonRequest(
         notes = notes,
@@ -73,7 +76,9 @@ fun Cipher.toEncryptedNetworkCipher(
         driversLicense = driversLicense?.toEncryptedNetworkDriversLicense(),
         passport = passport?.toEncryptedNetworkPassport(),
         archivedDate = archivedDate,
+        data = data,
         encryptedFor = encryptedFor,
+        encryptedByKeyId = encryptedByKeyId,
     )
 
 /**
@@ -116,6 +121,7 @@ fun Cipher.toEncryptedNetworkCipherResponse(
         key = key,
         encryptedFor = encryptedFor,
         archivedDate = archivedDate,
+        data = data,
     )
 
 /**
@@ -489,7 +495,8 @@ fun SyncResponseJson.Cipher.toEncryptedSdkCipher(): Cipher =
         deletedDate = deletedDate,
         revisionDate = revisionDate,
         archivedDate = archivedDate,
-        data = null,
+        data = data,
+        partialData = null,
     )
 
 /**
@@ -807,7 +814,10 @@ fun List<CipherListView>.sortAlphabetically(): List<CipherListView> {
  * object.
  */
 fun EncryptionContext.toEncryptedNetworkCipher(): CipherJsonRequest =
-    cipher.toEncryptedNetworkCipher(encryptedFor = encryptedFor)
+    cipher.toEncryptedNetworkCipher(
+        encryptedFor = encryptedFor,
+        encryptedByKeyId = encryptedByKeyId,
+    )
 
 /**
  * Converts a Bitwarden SDK [EncryptionContext] object to a corresponding [SyncResponseJson.Cipher]
@@ -828,7 +838,6 @@ fun Cipher.toFailureCipherListView(): CipherListView =
         organizationId = organizationId,
         folderId = folderId,
         collectionIds = collectionIds,
-        key = key,
         name = name.orEmpty(),
         subtitle = "",
         type = when (type) {
@@ -844,14 +853,20 @@ fun Cipher.toFailureCipherListView(): CipherListView =
 
             CipherType.SECURE_NOTE -> CipherListViewType.SecureNote
             CipherType.CARD -> CipherListViewType.Card(
-                CardListView(
+                v1 = CardListView(
                     brand = null,
                 ),
             )
 
             CipherType.IDENTITY -> CipherListViewType.Identity
             CipherType.SSH_KEY -> CipherListViewType.SshKey
-            CipherType.BANK_ACCOUNT -> CipherListViewType.BankAccount
+            CipherType.BANK_ACCOUNT -> CipherListViewType.BankAccount(
+                v1 = BankAccountListView(
+                    accountNumber = null,
+                    accountType = null,
+                ),
+            )
+
             CipherType.DRIVERS_LICENSE -> CipherListViewType.DriversLicense
             CipherType.PASSPORT -> CipherListViewType.Passport
         },
@@ -869,4 +884,5 @@ fun Cipher.toFailureCipherListView(): CipherListView =
         revisionDate = revisionDate,
         copyableFields = emptyList(),
         archivedDate = archivedDate,
+        partial = false,
     )

@@ -5,13 +5,14 @@ package com.x8bit.bitwarden.ui.vault.feature.addedit.util
 import com.bitwarden.collections.CollectionType
 import com.bitwarden.collections.CollectionView
 import com.bitwarden.core.data.util.toFormattedDateTimeStyle
+import com.bitwarden.core.util.persistentListOfNotNull
 import com.bitwarden.ui.platform.model.TotpData
 import com.bitwarden.ui.platform.resource.BitwardenString
 import com.bitwarden.ui.util.asText
 import com.bitwarden.vault.CipherRepromptType
 import com.bitwarden.vault.CipherType
 import com.bitwarden.vault.CipherView
-import com.bitwarden.vault.Fido2Credential
+import com.bitwarden.vault.Fido2CredentialView
 import com.bitwarden.vault.FieldType
 import com.bitwarden.vault.FieldView
 import com.bitwarden.vault.FolderView
@@ -29,10 +30,10 @@ import com.x8bit.bitwarden.ui.vault.model.VaultIdentityTitle
 import com.x8bit.bitwarden.ui.vault.model.VaultLinkedFieldType.Companion.fromId
 import com.x8bit.bitwarden.ui.vault.model.findVaultCardBrandWithNameOrNull
 import java.time.Clock
-import java.time.LocalDate
-import java.time.format.DateTimeParseException
 import java.time.format.FormatStyle
 import java.util.UUID
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Transforms [CipherView] into [VaultAddEditState.ViewState].
@@ -123,18 +124,18 @@ fun CipherView.toViewState(
                     licenseNumber = driversLicense?.licenseNumber.orEmpty(),
                     issuingCountry = driversLicense?.issuingCountry.orEmpty(),
                     issuingState = driversLicense?.issuingState.orEmpty(),
-                    expirationDate = driversLicense?.expirationDate?.toLocalDate(),
+                    expirationDate = driversLicense?.expirationDate,
                     licenseClass = driversLicense?.licenseClass.orEmpty(),
-                    dateOfBirth = driversLicense?.dateOfBirth?.toLocalDate(),
+                    dateOfBirth = driversLicense?.dateOfBirth,
                     issuingAuthority = driversLicense?.issuingAuthority.orEmpty(),
-                    issueDate = driversLicense?.issueDate?.toLocalDate(),
+                    issueDate = driversLicense?.issueDate,
                 )
             }
 
             CipherType.PASSPORT -> VaultAddEditState.ViewState.Content.ItemType.Passport(
                 givenName = passport?.givenName.orEmpty(),
                 surname = passport?.surname.orEmpty(),
-                dateOfBirth = passport?.dateOfBirth?.toLocalDate(),
+                dateOfBirth = passport?.dateOfBirth,
                 sex = passport?.sex.orEmpty(),
                 birthPlace = passport?.birthPlace.orEmpty(),
                 nationality = passport?.nationality.orEmpty(),
@@ -143,8 +144,8 @@ fun CipherView.toViewState(
                 nationalIdentificationNumber = passport?.nationalIdentificationNumber.orEmpty(),
                 issuingCountry = passport?.issuingCountry.orEmpty(),
                 issuingAuthority = passport?.issuingAuthority.orEmpty(),
-                issueDate = passport?.issueDate?.toLocalDate(),
-                expirationDate = passport?.expirationDate?.toLocalDate(),
+                issueDate = passport?.issueDate,
+                expirationDate = passport?.expirationDate,
             )
         },
         common = VaultAddEditState.ViewState.Content.Common(
@@ -156,7 +157,7 @@ fun CipherView.toViewState(
             favorite = this.favorite,
             masterPasswordReprompt = this.reprompt == CipherRepromptType.PASSWORD,
             notes = this.notes.orEmpty(),
-            availableOwners = emptyList(),
+            availableOwners = persistentListOf(),
             hasOrganizations = false,
             customFieldData = this.fields.orEmpty().map { it.toCustomField() },
             canDelete = canDelete,
@@ -174,21 +175,17 @@ fun CipherView.toViewState(
         isIndividualVaultDisabled = isIndividualVaultDisabled,
     )
 
-private fun String.toLocalDate(): LocalDate? = try {
-    LocalDate.parse(this)
-} catch (_: DateTimeParseException) {
-    null
-}
-
 /**
  * Adds Folder and Owner data to [VaultAddEditState.ViewState].
  */
+@Suppress("LongParameterList")
 fun VaultAddEditState.ViewState.appendFolderAndOwnerData(
     folderViewList: List<FolderView>,
     collectionViewList: List<CollectionView>,
     activeAccount: UserState.Account,
     isIndividualVaultDisabled: Boolean,
     resourceManager: ResourceManager,
+    isVfo1FoundationEnabled: Boolean,
 ): VaultAddEditState.ViewState {
     return (this as? VaultAddEditState.ViewState.Content)?.let { currentContentState ->
         currentContentState.copy(
@@ -214,6 +211,7 @@ fun VaultAddEditState.ViewState.appendFolderAndOwnerData(
                     collectionViewList = collectionViewList,
                     cipherView = currentContentState.common.originalCipher,
                     isIndividualVaultDisabled = isIndividualVaultDisabled,
+                    isVfo1FoundationEnabled = isVfo1FoundationEnabled,
                     selectedCollectionId = currentContentState.common.selectedCollectionId
                         ?: collectionViewList
                             .getDefaultCollectionViewOrNull(
@@ -301,12 +299,17 @@ private fun UserState.Account.toAvailableOwners(
     collectionViewList: List<CollectionView>,
     cipherView: CipherView?,
     isIndividualVaultDisabled: Boolean,
+    isVfo1FoundationEnabled: Boolean,
     selectedCollectionId: String? = null,
-): List<VaultAddEditState.Owner> =
-    listOfNotNull(
+): ImmutableList<VaultAddEditState.Owner> =
+    persistentListOfNotNull(
         VaultAddEditState
             .Owner(
-                name = email,
+                name = if (isVfo1FoundationEnabled) {
+                    BitwardenString.my_vault.asText()
+                } else {
+                    email.asText()
+                },
                 id = null,
                 collections = emptyList(),
             )
@@ -314,7 +317,7 @@ private fun UserState.Account.toAvailableOwners(
         *organizations
             .map {
                 VaultAddEditState.Owner(
-                    name = it.name,
+                    name = it.name.asText(),
                     id = it.id,
                     collections = collectionViewList
                         .filter { collection ->
@@ -421,9 +424,9 @@ private fun List<LoginUriView>?.toUriItems(): List<UriItem> =
  * Retrieves the cipher's primary (first) FIDO2 credential, or null if there is no FIDO2 credential
  * assigned.
  */
-private fun List<Fido2Credential>?.getPrimaryFido2CredentialOrNull(
+private fun List<Fido2CredentialView>?.getPrimaryFido2CredentialOrNull(
     isClone: Boolean,
-): Fido2Credential? {
+): Fido2CredentialView? {
     if (isNullOrEmpty() || isClone) return null
 
     return first()
@@ -433,10 +436,11 @@ private fun List<Fido2Credential>?.getPrimaryFido2CredentialOrNull(
  * Return the creation date and time of the primary FIDO2 credential, formatted as
  * "MMM d, yyyy, hh:mm a".
  */
-private fun Fido2Credential.getCreationDateTime(clock: Clock) = BitwardenString.created_x.asText(
-    creationDate.toFormattedDateTimeStyle(
-        dateStyle = FormatStyle.MEDIUM,
-        timeStyle = FormatStyle.SHORT,
-        clock = clock,
-    ),
-)
+private fun Fido2CredentialView.getCreationDateTime(clock: Clock) =
+    BitwardenString.created_x.asText(
+        creationDate.toFormattedDateTimeStyle(
+            dateStyle = FormatStyle.MEDIUM,
+            timeStyle = FormatStyle.SHORT,
+            clock = clock,
+        ),
+    )

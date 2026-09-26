@@ -1,5 +1,7 @@
 package com.x8bit.bitwarden.data.auth.repository.model
 
+import com.bitwarden.network.model.SendAccessTypeJson
+import com.bitwarden.network.model.SendTypeJson
 import com.bitwarden.network.model.SyncResponseJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -114,6 +116,42 @@ sealed class PolicyInformation {
     ) : PolicyInformation()
 
     /**
+     * Represents a policy enforcing rules on the creation and sharing of Sends. Supersedes the
+     * disable-send policy and [SendOptions] when the `pm-31885-send-controls` feature flag is
+     * active.
+     *
+     * @property disableSend Whether the ability to create and edit Sends is disabled.
+     * @property disableHideEmail Whether the user should have the ability to hide their email
+     * address from Send recipients.
+     * @property whoCanAccess The access type Sends are restricted to, if any.
+     * @property allowedDomains A comma-separated list of email domains recipients must belong to
+     * when [whoCanAccess] is [SendAccessTypeJson.SPECIFIC_PEOPLE].
+     * @property deletionHours The number of hours until a Send is deleted, if enforced.
+     * @property allowedSendTypes The types of Sends that are allowed to be created, if
+     * restricted.
+     */
+    @Serializable
+    data class SendControls(
+        @SerialName("disableSend")
+        val disableSend: Boolean?,
+
+        @SerialName("disableHideEmail")
+        val disableHideEmail: Boolean?,
+
+        @SerialName("whoCanAccess")
+        val whoCanAccess: SendAccessTypeJson?,
+
+        @SerialName("allowedDomains")
+        val allowedDomains: String?,
+
+        @SerialName("deletionHours")
+        val deletionHours: Int?,
+
+        @SerialName("allowedSendTypes")
+        val allowedSendTypes: List<SendTypeJson>?,
+    ) : PolicyInformation()
+
+    /**
      * Represents a policy enforcing rules on the user's vault timeout settings.
      */
     @Serializable
@@ -160,4 +198,28 @@ sealed class PolicyInformation {
             CUSTOM,
         }
     }
+
+    /**
+     * Represents a policy to display a user notification banner on the main vault screen.
+     *
+     * @property headerText The text to be displayed on the banner header.
+     * @property descriptionText The text to be displayed on the banner description.
+     * @property buttonText The text to be displayed in the banner button.
+     * @property showAfterEveryLogin Indicates if the dismissed status of the banner should persist
+     * after a soft-logout. When `true` the dismissal is not persisted, otherwise, it is persisted.
+     */
+    @Serializable
+    data class OrganizationUserNotification(
+        @SerialName("header")
+        val headerText: String?,
+
+        @SerialName("description")
+        val descriptionText: String,
+
+        @SerialName("buttonText")
+        val buttonText: String?,
+
+        @SerialName("showAfterEveryLogin")
+        val showAfterEveryLogin: Boolean,
+    ) : PolicyInformation()
 }

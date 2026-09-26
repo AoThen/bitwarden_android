@@ -24,8 +24,8 @@
     <string name="folder_created">Neuer Ordner wurde erstellt.</string>
     <string name="folder_deleted">Ordner wurde gelöscht.</string>
     <string name="folder_none">Kein Ordner</string>
-    <string name="folders">Ordner</string>
     <string name="folder_updated">Ordner gespeichert</string>
+    <string name="folders">Ordner</string>
     <string name="hide">Verstecken</string>
     <string name="internet_connection_required_message">Bitte verbinde dich mit dem Internet um fortzufahren.</string>
     <string name="internet_connection_required_title">Internetverbindung erforderlich</string>
@@ -44,6 +44,8 @@
     <string name="master_password_required">Master-Passwort (erforderlich)</string>
     <string name="new_master_password_required">Neues Master-Passwort (erforderlich)</string>
     <string name="more_options">Weitere Optionen</string>
+    <string name="my_folder">Mein Ordner</string>
+    <string name="my_folders">Meine Ordner</string>
     <string name="my_vault">Mein Tresor</string>
     <string name="name">Name</string>
     <string name="item_name_required">Eintragsname (erforderlich)</string>
@@ -118,7 +120,6 @@
     <string name="min_numbers">Mindestanzahl Ziffern</string>
     <string name="min_special">Mindestanzahl Sonderzeichen</string>
     <string name="never">Niemals</string>
-    <string name="new_item_created">Eintrag erstellt</string>
     <string name="no_cards">Du hast keine Karten in deinem Tresor.</string>
     <string name="add_card">Karte hinzufügen</string>
     <string name="no_logins">Du hast keine Zugangsdaten in deinem Tresor.</string>
@@ -148,6 +149,14 @@
     <string name="select">Auswählen</string>
     <string name="item_details">Eintrag-Details</string>
     <string name="item_updated">Eintrag gespeichert</string>
+    <string name="bank_account_saved">Bankkonto gespeichert</string>
+    <string name="card_saved">Karte gespeichert</string>
+    <string name="identity_saved">Identität gespeichert</string>
+    <string name="license_saved">Führerschein gespeichert</string>
+    <string name="login_saved">Zugangsdaten gespeichert</string>
+    <string name="passport_saved">Reisepass gespeichert</string>
+    <string name="secure_note_saved">Sichere Notiz gespeichert</string>
+    <string name="ssh_key_saved">SSH-Schlüssel gespeichert</string>
     <string name="submitting">Wird übermittelt…</string>
     <string name="syncing">Wird synchronisiert…</string>
     <string name="syncing_complete">Synchronisierung abgeschlossen</string>
@@ -283,7 +292,9 @@ Das Scannen erfolgt automatisch.</string>
     <string name="vault_is_locked">Tresor ist gesperrt</string>
     <string name="go_to_my_vault">Zum Tresor gehen</string>
     <string name="collections">Sammlungen</string>
-    <string name="no_items_collection">Es sind keine Objekte in dieser Sammlung.</string>
+    <string name="shared_folders">Geteilte Ordner</string>
+    <string name="no_items_collection">Diese Sammlung enthält keine Einträge.</string>
+    <string name="there_are_no_items_in_this_shared_folder">Es gibt keine Einträge in diesem geteiltem Ordner.</string>
     <string name="no_items_folder">Es sind keine Objekte in diesem Ordner.</string>
     <string name="no_items_trash">Es sind keine Einträge im Papierkorb.</string>
     <string name="autofill_accessibility_summary">Unterstützung beim Ausfüllen von Benutzernamen und Passwort in anderen Apps und im Web.</string>
@@ -338,16 +349,21 @@ Das Scannen erfolgt automatisch.</string>
     <string name="move_up">Nach oben bewegen</string>
     <string name="owner">Besitzer</string>
     <string name="no_collections_to_list">Keine Sammlungen vorhanden.</string>
+    <string name="there_are_no_shared_folders_to_list">Es gibt keine geteilten Ordner zum Anzeigen.</string>
     <string name="moved_item_to_org">%1$s verschoben nach %2$s.</string>
     <string name="select_one_collection">Es muss mindestens eine Sammlung ausgewählt sein.</string>
+    <string name="you_must_select_at_least_one_shared_folder">Du musst mindestens einen geteilten Ordner auswählen.</string>
     <string name="share">Teilen</string>
     <string name="move_to_organization">In Organisation verschieben</string>
     <string name="no_orgs_to_list">Keine Organisationen vorhanden.</string>
     <string name="move_to_org_desc">Wähle eine Organisation aus, in die du diesen Eintrag verschieben möchtest. Das Verschieben in eine Organisation überträgt das Eigentum an diese Organisation. Du bist nicht mehr der direkte Eigentümer dieses Eintrags, sobald er verschoben wurde.</string>
+    <string name="no_vaults_to_list">Keine Tresore zum Anzeigen.</string>
+    <string name="move_to_vault_desc">Wähle einen Tresor aus, in den du diesen Eintrag verschieben möchtest. Das Verschieben in einen anderen Tresor übertragt das Eigentum an diese Organisation. Du bist nicht länger der Eigentümer dieses Eintrags, sobald er verschoben wurde.</string>
     <string name="number_of_words">Anzahl der Wörter</string>
     <string name="passphrase">Passphrase</string>
     <string name="word_separator">Worttrennzeichen</string>
     <string name="clear">Leeren</string>
+    <string name="open_calendar">Kalender öffnen</string>
     <string name="generator">Generator</string>
     <string name="no_folders_to_list">Keine Ordner zum Auflisten vorhanden.</string>
     <string name="fingerprint_phrase">Fingerabdruck-Phrase</string>
@@ -379,6 +395,8 @@ Das Scannen erfolgt automatisch.</string>
     <string name="pin_require_master_password_restart">Möchtest du mit deinem Master-Passwort entsperren, wenn die Anwendung neu gestartet wird?</string>
     <string name="ask_to_add_item">Nach dem Hinzufügen von Einträgen fragen</string>
     <string name="ask_to_add_item_description">Nach dem Hinzufügen eines Eintrags fragen, wenn dieser nicht in deinem Tresor gefunden wurde.</string>
+    <string name="turn_on_fill_assist">Ausfüllhilfe einschalten</string>
+    <string name="fill_assist_improves_autofill_accuracy_on_supported_sites">Die Ausfüllhilfe verbessert die Genauigkeit von Auto-Ausfüllen auf unterstützten Websites durch die Verwendung von Website-spezifischen Regeln.</string>
     <string name="on_restart">Beim Neustart der App</string>
     <string name="capitalize">Wortanfänge großschreiben</string>
     <string name="include_number">Ziffern einschließen</string>
@@ -455,6 +473,7 @@ Das Scannen erfolgt automatisch.</string>
     <string name="deletion_date">Löschdatum</string>
     <string name="deletion_time">Löschzeitpunkt</string>
     <string name="deletion_date_info">Das Send wird am angegebenen Datum zur angegebenen Uhrzeit dauerhaft gelöscht.</string>
+    <string name="this_date_is_enforced_by_your_organization">Dieses Datum wird von deiner Organisation vorgeschrieben</string>
     <string name="who_can_view">Wer kann das sehen</string>
     <string name="anyone_with_the_link">Alle mit dem Link</string>
     <string name="anyone_with_link_can_view_send">Alle mit diesem Link können dieses Send anzeigen</string>
@@ -492,6 +511,7 @@ Das Scannen erfolgt automatisch.</string>
     <string name="two_days">2 Tage</string>
     <string name="three_days">3 Tage</string>
     <string name="seven_days">7 Tage</string>
+    <string name="fourteen_days">14 Tage</string>
     <string name="thirty_days">30 Tage</string>
     <string name="custom">Benutzerdefiniert</string>
     <string name="custom_timeout">Benutzerdefinierter Timeout</string>
@@ -500,6 +520,11 @@ Das Scannen erfolgt automatisch.</string>
     <string name="about_send">Über Send</string>
     <string name="hide_email">Meine E-Mail-Adresse vor den Empfängern verstecken</string>
     <string name="send_options_policy_in_effect">Eine oder mehrere Organisationsrichtlinien beeinflussen deine Send Einstellungen.</string>
+    <string name="organization_policy_restriction">Einschränkung aufgrund von Organisationsrichtlinien</string>
+    <string name="this_send_is_not_compliant_with_your_organizations_send_policy">Dieses Send entspricht nicht den Send-Richtlinien deiner Organisation und läuft automatisch zum festgelegten Löschdatum ab.</string>
+    <string name="text_sends_are_not_allowed_for_your_organization">Text-Sends sind für deine Organisation nicht erlaubt und dieses Senden läuft automatisch zum festgelegten Löschdatum ab.</string>
+    <string name="to_edit_this_send_make_a_copy">Erstellle eine Kopie, um diesen Send zu bearbeiten. Wenn dieses Send zum festgelegten Löschdatum ablaufen kann, sind keine Maßnahmen erforderlich.</string>
+    <string name="make_a_copy">Eine Kopie erstellen</string>
     <string name="send_file_premium_required">Kostenlose Konten sind auf das Teilen von Texten beschränkt. Eine Premium-Mitgliedschaft ist erforderlich, um Dateien mit Send zu verwenden.</string>
     <string name="sharing_with_specific_people_is_a_premium_feature">Das Teilen mit bestimmten Personen ist eine Premium-Funktion. Dein aktueller Tarif umfasst keinen Zugriff auf diese Funktion.</string>
     <string name="password_prompt">Master-Passwort erneut abfragen</string>
@@ -684,6 +709,7 @@ Möchtest du zu diesem Konto wechseln?</string>
     <string name="logging_in_on">Anmelden bei</string>
     <string name="logging_in_on_with_colon">Anmelden bei:</string>
     <string name="vault">Tresor</string>
+    <string name="select_vault">Tresor auswählen</string>
     <string name="appearance">Aussehen</string>
     <string name="account_security">Kontosicherheit</string>
     <string name="bitwarden_help_center">Bitwarden Hilfezentrum</string>
@@ -1236,6 +1262,7 @@ Möchtest du zu diesem Konto wechseln?</string>
     <string name="invalid_email_addresses">Ungültige E-Mail-Adressen</string>
     <string name="one_or_more_email_addresses_are_incorrect">Eine oder mehrere E-Mail-Adressen sind falsch. Bitte überprüfe sie und versuche es erneut.</string>
     <string name="no_email_addresses_entered">Keine E-Mail-Adressen eingegeben</string>
+    <string name="only_include_the_following_domains_x_please_review_and_try_again">Bitte gib nur die folgenden Domains an: %1$s. Bitte überprüfe die Eingabe und versuche es erneut.</string>
     <string name="enter_at_least_one_valid_email_address_to_share_this_send">Gib mindestens eine gültige E-Mail-Adresse ein, um dieses Send mit anderen zu teilen.</string>
     <string name="sync_with_browser">Mit Browser synchronisieren</string>
     <string name="sync_with_browser_description">Um dich mit %1$s zu verbinden, synchronisiere deinen Standardbrowser mit der mobilen Bitwarden-App. Wenn sich dein Browser öffnet, dann schließ die Anmeldung ab, wenn du dazu aufgefordert wirst.\nSobald die Synchronisierung abgeschlossen ist, wirst du zu dieser App zurückgeleitet.</string>
@@ -1275,13 +1302,13 @@ Möchtest du zu diesem Konto wechseln?</string>
     <string name="upgrade_pending">Upgrade ausstehend</string>
     <string name="upgrade_pending_message">Dein Upgrade wird gerade bearbeitet. Bis zum Abschluss des Vorgangs bleibst du im kostenlosen Tarif. Führe jetzt eine Synchronisierung durch, um den Status zu überprüfen, oder fahre fort und die Aktualisierung erfolgt dann automatisch.</string>
     <string name="unlock_premium_features">Schalte mehr erweiterte Funktionen mit einem Premium-Tarif frei.</string>
-    <string name="per_month">/ Monat</string>
+    <string name="per_month_cancel_anytime">/ Monat · Jederzeit kündbar</string>
+    <string name="per_month_cancel_anytime_content_description">%1$s pro Monat, jederzeit kündbar</string>
     <string name="built_in_authenticator">Integrierter Authenticator</string>
     <string name="emergency_access">Notfallzugriff</string>
     <string name="secure_file_storage">Sichere Dateispeicherung</string>
     <string name="breach_monitoring">Datendiebstahl-Überwachung</string>
-    <string name="upgrade_now">Jetzt upgraden</string>
-    <string name="youll_go_to_stripes_secure_checkout_to_complete_your_purchase">Du wirst zur sicheren Kaufabwicklung von Stripe weitergeleitet, um deinen Kauf abzuschließen.</string>
+    <string name="youll_complete_the_purchase_with_stripe_secure_checkout">Du schließt den Kauf über den sicheren Bezahlvorgang von Stripe ab.</string>
     <string name="opening_checkout">Kaufabwicklung wird geöffnet…</string>
     <string name="secure_checkout_didnt_load">Die sichere Kaufabwicklung wurde nicht geladen</string>
     <string name="trouble_opening_payment_page">Wir hatten Probleme beim Öffnen der Zahlungsseite. Bitte versuche es erneut.</string>
@@ -1363,12 +1390,12 @@ Möchtest du zu diesem Konto wechseln?</string>
     <string name="copy_swift_code">SWIFT-Code kopieren</string>
     <string name="copy_iban">IBAN kopieren</string>
     <string name="copy_bank_contact_phone">Telefonnummer der Bank kopieren</string>
-    <string name="checking">Wird überprüft</string>
-    <string name="savings">Ersparnisse</string>
+    <string name="checking">Girokonto</string>
+    <string name="savings">Sparkonto</string>
     <string name="certificate_of_deposit">Einlagenzertifikat</string>
-    <string name="line_of_credit">Kreditrahmen</string>
-    <string name="investment_brokerage">Anlage/Wertpapierhandel</string>
-    <string name="money_market">Finanzmarkt</string>
+    <string name="line_of_credit">Kreditlinie</string>
+    <string name="investment_brokerage">Anlage-/Maklerkonto</string>
+    <string name="money_market">Geldmarktkonto</string>
     <string name="issuing_country">Ausstellendes Land</string>
     <string name="issuing_state">Ausstellendes Bundesland/Stadt/Landkreis</string>
     <string name="license_class">Führerscheinklasse</string>
@@ -1402,4 +1429,20 @@ Möchtest du zu diesem Konto wechseln?</string>
     <string name="your_request_was_interrupted_because_the_app_needs_local_network_access">Deine Anfrage wurde unterbrochen, da die App lokalen Netzwerkzugriff benötigt. Du kannst dies in deinen Geräteeinstellungen aktivieren.</string>
     <string name="continue_to_stripe">Weiter zu Stripe?</string>
     <string name="youll_be_taken_to_stripe_to_manage_your_subscription_cancellation">Du wirst zu Stripe weitergeleitet, um die Kündigung deines Abonnements vorzunehmen.</string>
+    <string name="unlock_advanced_protection">Erweitere deinen Schutz</string>
+    <string name="breeze_through_2fa_with_built_in_codes">Mit integrierten Codes ganz einfach die 2FA durchlaufen</string>
+    <string name="run_reports_to_find_risky_passwords">Erstelle Berichte, um gefährdete Passwörter zu finden</string>
+    <string name="add_a_trusted_emergency_contact">Füge einen vertrauenswürdigen Notfallkontakt hinzu</string>
+    <string name="identify_unsecure_websites">Erkenne unsichere Websites</string>
+    <string name="flag_accounts_with_inactive_2fa">Kennzeichne Konten mit inaktiver 2FA</string>
+    <string name="keep_documents_safe_and_encrypted">Bewahre Dokumente sicher und verschlüsselt auf</string>
+    <string name="share_files_securely_with_anyone_using_send">Teile Dateien mit Send sicher mit jedem</string>
+    <string name="receive_24_7_priority_support">Erhalte 24/7 vorrangigen Support</string>
+    <string name="account_creation_restricted">Kontoerstellung eingeschränkt</string>
+    <string name="only_allows_invited_users_to_create_accounts">%1$s erlaubt es nur eingeladenen Benutzern Konten zu erstellen.</string>
+    <string name="stepper_decrement_format" comment="Used to announce the value that will be decremented when a button is pressed">%1$s verringern</string>
+    <string name="stepper_increment_format" comment="Used to announce the value that will be incremented when a button is pressed">%1$s erhöhen</string>
+    <string name="use_this_passphrase">Diese Passphrase verwenden</string>
+    <string name="use_this_password">Dieses Passwort verwenden</string>
+    <string name="use_this_username">Diesen Benutzernamen verwenden</string>
 </resources>

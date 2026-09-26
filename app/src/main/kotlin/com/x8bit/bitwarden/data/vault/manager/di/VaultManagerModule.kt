@@ -7,6 +7,7 @@ import com.bitwarden.cxf.parser.CredentialExchangePayloadParser
 import com.bitwarden.data.manager.appstate.AppStateManager
 import com.bitwarden.data.manager.file.FileManager
 import com.bitwarden.network.service.CiphersService
+import com.bitwarden.network.service.DownloadService
 import com.bitwarden.network.service.FolderService
 import com.bitwarden.network.service.SendsService
 import com.bitwarden.network.service.SyncService
@@ -18,13 +19,16 @@ import com.x8bit.bitwarden.data.auth.manager.KdfManager
 import com.x8bit.bitwarden.data.auth.manager.TrustedDeviceManager
 import com.x8bit.bitwarden.data.auth.manager.UserLogoutManager
 import com.x8bit.bitwarden.data.auth.manager.UserStateManager
+import com.x8bit.bitwarden.data.autofill.manager.FillAssistManager
 import com.x8bit.bitwarden.data.platform.datasource.disk.SettingsDiskSource
 import com.x8bit.bitwarden.data.platform.manager.DatabaseSchemeManager
 import com.x8bit.bitwarden.data.platform.manager.FeatureFlagManager
 import com.x8bit.bitwarden.data.platform.manager.PolicyManager
 import com.x8bit.bitwarden.data.platform.manager.PushManager
 import com.x8bit.bitwarden.data.platform.manager.ReviewPromptManager
+import com.x8bit.bitwarden.data.platform.manager.keyrotation.KeyRotationManager
 import com.x8bit.bitwarden.data.platform.manager.network.NetworkConnectionManager
+import com.x8bit.bitwarden.data.platform.manager.policy.PasswordPolicyManager
 import com.x8bit.bitwarden.data.platform.repository.SettingsRepository
 import com.x8bit.bitwarden.data.vault.datasource.disk.VaultDiskSource
 import com.x8bit.bitwarden.data.vault.datasource.sdk.VaultSdkSource
@@ -44,7 +48,6 @@ import com.x8bit.bitwarden.data.vault.manager.VaultLockManager
 import com.x8bit.bitwarden.data.vault.manager.VaultLockManagerImpl
 import com.x8bit.bitwarden.data.vault.manager.VaultMigrationManager
 import com.x8bit.bitwarden.data.vault.manager.VaultMigrationManagerImpl
-import com.x8bit.bitwarden.data.autofill.manager.FillAssistManager
 import com.x8bit.bitwarden.data.vault.manager.VaultSyncManager
 import com.x8bit.bitwarden.data.vault.manager.VaultSyncManagerImpl
 import com.x8bit.bitwarden.data.vault.repository.VaultRepository
@@ -98,6 +101,7 @@ object VaultManagerModule {
     @Provides
     @Singleton
     fun provideCipherManager(
+        downloadService: DownloadService,
         ciphersService: CiphersService,
         settingsDiskSource: SettingsDiskSource,
         vaultDiskSource: VaultDiskSource,
@@ -109,6 +113,7 @@ object VaultManagerModule {
         dispatcherManager: DispatcherManager,
         pushManager: PushManager,
     ): CipherManager = CipherManagerImpl(
+        downloadService = downloadService,
         fileManager = fileManager,
         settingsDiskSource = settingsDiskSource,
         authDiskSource = authDiskSource,
@@ -181,6 +186,8 @@ object VaultManagerModule {
         trustedDeviceManager: TrustedDeviceManager,
         kdfManager: KdfManager,
         pinProtectedUserKeyManager: PinProtectedUserKeyManager,
+        passwordPolicyManager: PasswordPolicyManager,
+        keyRotationManager: KeyRotationManager,
     ): VaultLockManager =
         VaultLockManagerImpl(
             context = context,
@@ -196,6 +203,8 @@ object VaultManagerModule {
             trustedDeviceManager = trustedDeviceManager,
             kdfManager = kdfManager,
             pinProtectedUserKeyManager = pinProtectedUserKeyManager,
+            passwordPolicyManager = passwordPolicyManager,
+            keyRotationManager = keyRotationManager,
         )
 
     @Provides

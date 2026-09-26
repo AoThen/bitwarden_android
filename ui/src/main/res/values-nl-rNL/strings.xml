@@ -24,8 +24,8 @@
     <string name="folder_created">Nieuwe map is aangemaakt.</string>
     <string name="folder_deleted">Map is verwijderd.</string>
     <string name="folder_none">Geen map</string>
-    <string name="folders">Mappen</string>
     <string name="folder_updated">Map opgeslagen</string>
+    <string name="folders">Mappen</string>
     <string name="hide">Verbergen</string>
     <string name="internet_connection_required_message">Maak verbinding met internet voordat u doorgaat.</string>
     <string name="internet_connection_required_title">Internetverbinding is vereist</string>
@@ -44,6 +44,8 @@
     <string name="master_password_required">Hoofdwachtwoord (vereist)</string>
     <string name="new_master_password_required">Nieuw hoofdwachtwoord (vereist)</string>
     <string name="more_options">Meer opties</string>
+    <string name="my_folder">Mijn map</string>
+    <string name="my_folders">Mijn mappen</string>
     <string name="my_vault">Mijn kluis</string>
     <string name="name">Naam</string>
     <string name="item_name_required">Itemnaam (verplicht)</string>
@@ -118,7 +120,6 @@
     <string name="min_numbers">Min. aantal cijfers</string>
     <string name="min_special">Min. aantal speciaal</string>
     <string name="never">Nooit</string>
-    <string name="new_item_created">Nieuw item aangemaakt.</string>
     <string name="no_cards">Er zijn geen kaarten in je kluis.</string>
     <string name="add_card">Kaart toevoegen</string>
     <string name="no_logins">Er zijn geen inloggegevens in je kluis.</string>
@@ -148,6 +149,14 @@
     <string name="select">Selecteren</string>
     <string name="item_details">Itemdetails</string>
     <string name="item_updated">Item bijgewerkt</string>
+    <string name="bank_account_saved">Bankrekening opgeslagen</string>
+    <string name="card_saved">Kaart opgeslagen</string>
+    <string name="identity_saved">Identiteit opgeslagen</string>
+    <string name="license_saved">Rijbewijs opgeslagen</string>
+    <string name="login_saved">Login opgeslagen</string>
+    <string name="passport_saved">Paspoort opgeslagen</string>
+    <string name="secure_note_saved">Beveiligde notitie opgeslagen</string>
+    <string name="ssh_key_saved">SSH-sleutel opgeslagen</string>
     <string name="submitting">Indienen…</string>
     <string name="syncing">Synchroniseren…</string>
     <string name="syncing_complete">Synchronisatie voltooid</string>
@@ -283,7 +292,9 @@ Het scannen gebeurt automatisch.</string>
     <string name="vault_is_locked">Kluis is vergrendeld</string>
     <string name="go_to_my_vault">Ga naar mijn kluis</string>
     <string name="collections">Verzamelingen</string>
+    <string name="shared_folders">Gedeelde mappen</string>
     <string name="no_items_collection">Er zijn geen items in deze verzameling.</string>
+    <string name="there_are_no_items_in_this_shared_folder">Er zijn geen items in deze gedeelde map.</string>
     <string name="no_items_folder">Er zijn geen items in deze map.</string>
     <string name="no_items_trash">Er zijn geen items in de prullenbak.</string>
     <string name="autofill_accessibility_summary">Help met het invullen van velden voor gebruikersnaam en wachtwoord in andere apps en op het web.</string>
@@ -338,16 +349,21 @@ Het scannen gebeurt automatisch.</string>
     <string name="move_up">Omhoog</string>
     <string name="owner">Eigenaar</string>
     <string name="no_collections_to_list">Er zijn geen verzamelingen om weer te geven.</string>
+    <string name="there_are_no_shared_folders_to_list">Er zijn geen gedeelde mappen om weer te geven.</string>
     <string name="moved_item_to_org">%1$s is verplaatst naar %2$s.</string>
     <string name="select_one_collection">Je moet tenminste één verzameling selecteren.</string>
+    <string name="you_must_select_at_least_one_shared_folder">Je moet tenminste één gedeelde map selecteren.</string>
     <string name="share">Delen</string>
     <string name="move_to_organization">Naar organisatie verplaatsen</string>
     <string name="no_orgs_to_list">Geen organisaties om weer te geven.</string>
     <string name="move_to_org_desc">Kies een organisatie waarnaar je dit item wilt verplaatsen. Door het verplaatsen krijgt de organisatie de eigendomsrechten van het item. Je bent niet langer de directe eigenaar meer van het item als het is verplaatst.</string>
+    <string name="no_vaults_to_list">Geen kluizen om weer te geven.</string>
+    <string name="move_to_vault_desc">Kies een kluis waarnaar je dit item wilt verplaatsen. Door het verplaatsen krijgt de organisatie de eigendomsrechten van het item. Je bent niet langer de directe eigenaar meer van het item als het is verplaatst.</string>
     <string name="number_of_words">Aantal woorden</string>
     <string name="passphrase">Wachtwoordzin</string>
     <string name="word_separator">Scheidingsteken</string>
     <string name="clear">Wissen</string>
+    <string name="open_calendar">agenda openen</string>
     <string name="generator">Generator</string>
     <string name="no_folders_to_list">Er zijn geen mappen om weer te geven.</string>
     <string name="fingerprint_phrase">Vingerafdrukzin</string>
@@ -379,6 +395,8 @@ Het scannen gebeurt automatisch.</string>
     <string name="pin_require_master_password_restart">Wil je verplicht ontgrendelen met je hoofdwachtwoord zodra de applicatie opnieuw wordt gestart?</string>
     <string name="ask_to_add_item">Vraag om item toe te voegen</string>
     <string name="ask_to_add_item_description">Vraag om een item toe te voegen als deze niet in je kluis is gevonden.</string>
+    <string name="turn_on_fill_assist">Invulassistent inschakelen</string>
+    <string name="fill_assist_improves_autofill_accuracy_on_supported_sites">Invulassistentie verbetert de nauwkeurigheid van automatisch invullen op ondersteunde sites met site-specifieke regels..</string>
     <string name="on_restart">Na opnieuw starten</string>
     <string name="capitalize">Beginhoofdletters</string>
     <string name="include_number">Cijfer toevoegen</string>
@@ -455,6 +473,7 @@ Het scannen gebeurt automatisch.</string>
     <string name="deletion_date">Verwijderingsdatum</string>
     <string name="deletion_time">Verwijderingstijd</string>
     <string name="deletion_date_info">Deze Send wordt op de aangegeven datum en tijd definitief verwijderd.</string>
+    <string name="this_date_is_enforced_by_your_organization">Deze datum is opgelegd door je organisatie</string>
     <string name="who_can_view">Wie kan weergeven</string>
     <string name="anyone_with_the_link">Iedereen met de link</string>
     <string name="anyone_with_link_can_view_send">Iedereen met deze link kan deze Send bekijken</string>
@@ -492,6 +511,7 @@ Het scannen gebeurt automatisch.</string>
     <string name="two_days">2 dagen</string>
     <string name="three_days">3 dagen</string>
     <string name="seven_days">7 dagen</string>
+    <string name="fourteen_days">14 dagen</string>
     <string name="thirty_days">30 dagen</string>
     <string name="custom">Aangepast</string>
     <string name="custom_timeout">Aangepaste time-out</string>
@@ -500,6 +520,11 @@ Het scannen gebeurt automatisch.</string>
     <string name="about_send">Over Send</string>
     <string name="hide_email">Verberg mijn e-mailadres voor ontvangers</string>
     <string name="send_options_policy_in_effect">Een of meer organisatiebeleidseisen heeft invloed op de mogelijkheden van je Send.</string>
+    <string name="organization_policy_restriction">Beperking van het organisatiebeleid</string>
+    <string name="this_send_is_not_compliant_with_your_organizations_send_policy">Deze Send is niet in overeenstemming met het Send-beleid van je organisatie en vervalt automatisch op de aangegeven datum van verwijdering.</string>
+    <string name="text_sends_are_not_allowed_for_your_organization">Tekst-Sends zijn niet in overeenstemming met het Send-beleid van je organisatie en deze Send vervalt automatisch op de aangegeven datum van verwijdering.</string>
+    <string name="to_edit_this_send_make_a_copy">Maak een kopie om deze Send te bewerken. Als deze Send mag verlopen op de verwijderingsdatum is geen actie nodig.</string>
+    <string name="make_a_copy">Een kopie maken</string>
     <string name="send_file_premium_required">Met een gratis account kun je alleen tekst delen. Voor het delen van bestanden heb je een Premium-abonnement nodig.</string>
     <string name="sharing_with_specific_people_is_a_premium_feature">Het delen met specifieke mensen is een Premium-functie. Toegang tot deze functie is niet inbegrepen in je huidige abonnement.</string>
     <string name="password_prompt">Hoofdwachtwoord opnieuw vragen</string>
@@ -685,6 +710,7 @@ Wilt u naar dit account wisselen?</string>
     <string name="logging_in_on">Inloggen op</string>
     <string name="logging_in_on_with_colon">Inloggen op:</string>
     <string name="vault">Kluis</string>
+    <string name="select_vault">Kluis selecteren</string>
     <string name="appearance">Weergave</string>
     <string name="account_security">Accountbeveiliging</string>
     <string name="bitwarden_help_center">Bitwarden Hulpcentrum</string>
@@ -1237,6 +1263,7 @@ Wilt u naar dit account wisselen?</string>
     <string name="invalid_email_addresses">Ongeldige e-mailadressen</string>
     <string name="one_or_more_email_addresses_are_incorrect">Een of meer e-mailadressen zijn onjuist. Controleer en probeer het opnieuw.</string>
     <string name="no_email_addresses_entered">Geen e-mailadressen ingevoerd</string>
+    <string name="only_include_the_following_domains_x_please_review_and_try_again">Only include the following domains: %1$s. Please review and try again.</string>
     <string name="enter_at_least_one_valid_email_address_to_share_this_send">Voer ten minste één geldig e-mailadres in om deze Send te delen.</string>
     <string name="sync_with_browser">Synchroniseren met browser</string>
     <string name="sync_with_browser_description">Om verbinding te maken met %1$s, synchroniseer je je standaardbrowser met de mobiele Bitwarden-app. Als je browser opent, voltooi je indien gevraagd je aanmelding.\nZodra de synchronisatie is voltooid, keer je terug naar deze app.</string>
@@ -1276,13 +1303,13 @@ Wilt u naar dit account wisselen?</string>
     <string name="upgrade_pending">Upgrade in behandeling</string>
     <string name="upgrade_pending_message">Je upgrade wordt verwerkt. Je werkt met het gratis abonnement totdat het is afgerond. Synchroniseer nu om te controleren, of ga door waarna de upgrade automatisch zal worden verwerkt.</string>
     <string name="unlock_premium_features">Ontgrendel meer geavanceerde functies met een Premium-abonnement.</string>
-    <string name="per_month">/ maand</string>
+    <string name="per_month_cancel_anytime">/ maand · Op elk moment te annuleren</string>
+    <string name="per_month_cancel_anytime_content_description">%1$s per maand, op elk moment te annuleren</string>
     <string name="built_in_authenticator">Ingebouwde authenticator</string>
     <string name="emergency_access">Noodtoegang</string>
     <string name="secure_file_storage">Beveiligde bestandsopslag</string>
     <string name="breach_monitoring">Lek-monitoring</string>
-    <string name="upgrade_now">Nu upgraden</string>
-    <string name="youll_go_to_stripes_secure_checkout_to_complete_your_purchase">Je gaat naar Stripe\'s beveiligde checkout voor het afronden van je aankoop.</string>
+    <string name="youll_complete_the_purchase_with_stripe_secure_checkout">Je rondt de aankoop af met een beveiligde Stripe-checkout.</string>
     <string name="opening_checkout">Checkout openen…</string>
     <string name="secure_checkout_didnt_load">Beveiligde checkout werd niet geladen</string>
     <string name="trouble_opening_payment_page">We hebben problemen gehad met het openen van de betaalpagina, dus probeer het opnieuw.</string>
@@ -1403,4 +1430,20 @@ Wilt u naar dit account wisselen?</string>
     <string name="your_request_was_interrupted_because_the_app_needs_local_network_access">Je verzoek is onderbroken omdat de app lokale netwerktoegang nodig heeft. Je kunt dit inschakelen in je apparaatinstellingen.</string>
     <string name="continue_to_stripe">Doorgaan naar Stripe?</string>
     <string name="youll_be_taken_to_stripe_to_manage_your_subscription_cancellation">Je wordt naar Stripe geleid voor het beheren van de opzegging van je abonnement.</string>
+    <string name="unlock_advanced_protection">Geavanceerde beveiliging ontgrendelen</string>
+    <string name="breeze_through_2fa_with_built_in_codes">Flits door 2FA met ingebouwde codes</string>
+    <string name="run_reports_to_find_risky_passwords">Draai rapporten om riskante wachtwoorden te vinden</string>
+    <string name="add_a_trusted_emergency_contact">Voeg een vertrouwd noodcontact toe</string>
+    <string name="identify_unsecure_websites">Identificeer onveilige websites</string>
+    <string name="flag_accounts_with_inactive_2fa">Markeer accounts met inactieve 2FA</string>
+    <string name="keep_documents_safe_and_encrypted">Behoud documenten veilig en versleuteld</string>
+    <string name="share_files_securely_with_anyone_using_send">Deel bestanden veilig met iedereen met behulp van Send</string>
+    <string name="receive_24_7_priority_support">Ontvang 24/7 prioriteitsondersteuning</string>
+    <string name="account_creation_restricted">Account aanmaken beperkt</string>
+    <string name="only_allows_invited_users_to_create_accounts">%1$s staat het aanmaken van accounts alleen toe aan uitgenodigde gebruikers.</string>
+    <string name="stepper_decrement_format" comment="Used to announce the value that will be decremented when a button is pressed">%1$s verlagen</string>
+    <string name="stepper_increment_format" comment="Used to announce the value that will be incremented when a button is pressed">%1$s verhogen</string>
+    <string name="use_this_passphrase">Deze wachtwoordzin gebruiken</string>
+    <string name="use_this_password">Dit wachtwoord gebruiken</string>
+    <string name="use_this_username">Deze gebruikersnaam gebruiken</string>
 </resources>

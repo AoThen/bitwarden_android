@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
  */
 val darkBitwardenColorScheme: BitwardenColorScheme = BitwardenColorScheme(
     isDarkTheme = true,
+    isDynamicTheme = false,
     text = BitwardenColorScheme.TextColors(
         primary = PrimitiveColors.gray200,
         secondary = PrimitiveColors.gray500,
@@ -108,6 +109,7 @@ val darkBitwardenColorScheme: BitwardenColorScheme = BitwardenColorScheme(
  */
 val lightBitwardenColorScheme: BitwardenColorScheme = BitwardenColorScheme(
     isDarkTheme = false,
+    isDynamicTheme = false,
     text = BitwardenColorScheme.TextColors(
         primary = PrimitiveColors.gray1300,
         secondary = PrimitiveColors.gray700,
@@ -208,13 +210,14 @@ val lightBitwardenColorScheme: BitwardenColorScheme = BitwardenColorScheme(
  * Creates a [BitwardenColorScheme] based on dynamic Material You colors.
  */
 @Suppress("LongMethod")
-fun dynamicBitwardenColorScheme(
+internal fun dynamicBitwardenColorScheme(
     materialColorScheme: ColorScheme,
     isDarkTheme: Boolean,
 ): BitwardenColorScheme {
     val defaultTheme = if (isDarkTheme) darkBitwardenColorScheme else lightBitwardenColorScheme
     return BitwardenColorScheme(
         isDarkTheme = isDarkTheme,
+        isDynamicTheme = true,
         text = BitwardenColorScheme.TextColors(
             primary = materialColorScheme.onBackground,
             secondary = materialColorScheme.onSurface,
@@ -307,7 +310,7 @@ fun dynamicBitwardenColorScheme(
  * Derives a Material [ColorScheme] from the [BitwardenColorScheme] using the [defaultColorScheme]
  * as a baseline.
  */
-fun BitwardenColorScheme.toMaterialColorScheme(
+internal fun BitwardenColorScheme.toMaterialColorScheme(
     defaultColorScheme: ColorScheme,
 ): ColorScheme = defaultColorScheme.copy(
     primary = this.stroke.border,

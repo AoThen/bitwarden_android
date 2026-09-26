@@ -20,6 +20,7 @@ import com.bitwarden.network.model.createMockPasswordHistory
 import com.bitwarden.network.model.createMockSecureNote
 import com.bitwarden.network.model.createMockSshKey
 import com.bitwarden.network.model.createMockUri
+import com.bitwarden.vault.BankAccountListView
 import com.bitwarden.vault.CipherListViewType
 import com.bitwarden.vault.CipherRepromptType
 import com.bitwarden.vault.CipherType
@@ -81,6 +82,7 @@ class VaultSdkCipherExtensionsTest {
         val sdkCipher = createMockSdkCipher(number = 1, clock = FIXED_CLOCK)
         val syncCipher = sdkCipher.toEncryptedNetworkCipher(
             encryptedFor = "mockEncryptedFor-1",
+            encryptedByKeyId = "mockEncryptedByKeyId-1",
         )
         assertEquals(
             createMockCipherJsonRequest(
@@ -218,7 +220,10 @@ class VaultSdkCipherExtensionsTest {
         )
             .copy(bankAccount = null)
 
-        val request = sdkCipher.toEncryptedNetworkCipher(encryptedFor = "mockEncryptedFor-1")
+        val request = sdkCipher.toEncryptedNetworkCipher(
+            encryptedFor = "mockEncryptedFor-1",
+            encryptedByKeyId = "mockEncryptedByKeyId-1",
+        )
 
         assertNull(request.bankAccount)
     }
@@ -227,7 +232,10 @@ class VaultSdkCipherExtensionsTest {
     fun `toEncryptedNetworkCipher should map driversLicense and passport`() {
         val sdkCipher = createMockSdkCipher(number = 1, clock = FIXED_CLOCK)
 
-        val request = sdkCipher.toEncryptedNetworkCipher(encryptedFor = "mockEncryptedFor-1")
+        val request = sdkCipher.toEncryptedNetworkCipher(
+            encryptedFor = "mockEncryptedFor-1",
+            encryptedByKeyId = "mockEncryptedByKeyId-1",
+        )
 
         assertEquals(createMockDriversLicense(number = 1), request.driversLicense)
         assertEquals(createMockPassport(number = 1), request.passport)
@@ -481,7 +489,6 @@ class VaultSdkCipherExtensionsTest {
         assertEquals("mockOrganizationId-1", result.organizationId)
         assertEquals("mockFolderId-1", result.folderId)
         assertEquals(listOf("mockCollectionId-1"), result.collectionIds)
-        assertEquals("mockKey-1", result.key)
         assertEquals("mockName-1", result.name)
         assertEquals("", result.subtitle)
         assertEquals(0.toUInt(), result.attachments)
@@ -514,7 +521,6 @@ class VaultSdkCipherExtensionsTest {
         assertEquals("mockOrganizationId-1", result.organizationId)
         assertEquals("mockFolderId-1", result.folderId)
         assertEquals(listOf("mockCollectionId-1"), result.collectionIds)
-        assertEquals("mockKey-1", result.key)
         assertEquals("mockName-1", result.name)
         assertEquals("", result.subtitle)
         assertEquals(0.toUInt(), result.attachments)
@@ -536,7 +542,15 @@ class VaultSdkCipherExtensionsTest {
 
         val result = cipher.toFailureCipherListView()
 
-        assertEquals(CipherListViewType.BankAccount, result.type)
+        assertEquals(
+            CipherListViewType.BankAccount(
+                v1 = BankAccountListView(
+                    accountNumber = null,
+                    accountType = null,
+                ),
+            ),
+            result.type,
+        )
     }
 
     @Test

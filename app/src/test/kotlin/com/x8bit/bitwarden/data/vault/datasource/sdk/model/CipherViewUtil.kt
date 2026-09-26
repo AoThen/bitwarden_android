@@ -8,7 +8,7 @@ import com.bitwarden.vault.CipherRepromptType
 import com.bitwarden.vault.CipherType
 import com.bitwarden.vault.CipherView
 import com.bitwarden.vault.DriversLicenseView
-import com.bitwarden.vault.Fido2Credential
+import com.bitwarden.vault.Fido2CredentialView
 import com.bitwarden.vault.FieldType
 import com.bitwarden.vault.FieldView
 import com.bitwarden.vault.IdentityView
@@ -22,6 +22,7 @@ import com.bitwarden.vault.SshKeyView
 import com.bitwarden.vault.UriMatchType
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 
 /**
@@ -53,7 +54,7 @@ fun createMockCipherView(
     notes: String? = "mockNotes-$number",
     password: String? = "mockPassword-$number",
     clock: Clock = FIXED_CLOCK,
-    fido2Credentials: List<Fido2Credential>? = null,
+    fido2Credentials: List<Fido2CredentialView>? = null,
     sshKey: SshKeyView? = createMockSshKeyView(number = number),
     login: LoginView? = createMockLoginView(
         number = number,
@@ -114,6 +115,7 @@ fun createMockCipherView(
         viewPassword = true,
         localData = null,
         attachmentDecryptionFailures = null,
+        partial = false,
     )
 
 /**
@@ -126,7 +128,7 @@ fun createMockLoginView(
     clock: Clock = FIXED_CLOCK,
     hasUris: Boolean = true,
     uris: List<LoginUriView>? = listOf(createMockUriView(number = number)),
-    fido2Credentials: List<Fido2Credential>? = createMockSdkFido2CredentialList(number, clock),
+    fido2Credentials: List<Fido2CredentialView>? = createMockSdkFido2CredentialList(number, clock),
     username: String? = "mockUsername-$number",
     password: String? = "mockPassword-$number",
 ): LoginView =
@@ -141,21 +143,21 @@ fun createMockLoginView(
     )
 
 /**
- * Create a list of mock [Fido2Credential] with a given [number].
+ * Create a list of mock [Fido2CredentialView] with a given [number].
  */
 fun createMockSdkFido2CredentialList(
     number: Int,
     clock: Clock = FIXED_CLOCK,
-): List<Fido2Credential> = listOf(createMockSdkFido2Credential(number = number, clock = clock))
+): List<Fido2CredentialView> = listOf(createMockSdkFido2Credential(number = number, clock = clock))
 
 /**
- * Create a mock [Fido2Credential] with a given [number].
+ * Create a mock [Fido2CredentialView] with a given [number].
  */
 fun createMockSdkFido2Credential(
     number: Int,
     rpId: String = "mockRpId-$number",
     clock: Clock = FIXED_CLOCK,
-): Fido2Credential = Fido2Credential(
+): Fido2CredentialView = Fido2CredentialView(
     credentialId = "mockCredentialId-$number",
     keyType = "mockKeyType-$number",
     keyAlgorithm = "mockKeyAlgorithm-$number",
@@ -272,13 +274,13 @@ fun createMockDriversLicenseView(
     firstName: String? = "mockFirstName-$number",
     middleName: String? = "mockMiddleName-$number",
     lastName: String? = "mockLastName-$number",
-    dateOfBirth: String? = "2006-05-11",
+    dateOfBirth: LocalDate? = LocalDate.parse("2006-05-11"),
     licenseNumber: String? = "mockLicenseNumber-$number",
     issuingCountry: String? = "mockIssuingCountry-$number",
     issuingState: String? = "mockIssuingState-$number",
     issuingAuthority: String? = "mockIssuingAuthority-$number",
-    issueDate: String? = "2024-06-15",
-    expirationDate: String? = "2031-11-25",
+    issueDate: LocalDate? = LocalDate.parse("2024-06-15"),
+    expirationDate: LocalDate? = LocalDate.parse("2031-11-25"),
     licenseClass: String? = "mockLicenseClass-$number",
 ): DriversLicenseView =
     DriversLicenseView(
@@ -303,7 +305,7 @@ fun createMockPassportView(
     number: Int,
     surname: String? = "mockSurname-$number",
     givenName: String? = "mockGivenName-$number",
-    dateOfBirth: String? = "2006-05-11",
+    dateOfBirth: LocalDate? = LocalDate.parse("2006-05-11"),
     birthPlace: String? = "mockBirthPlace-$number",
     sex: String? = "mockSex-$number",
     nationality: String? = "mockNationality-$number",
@@ -311,8 +313,8 @@ fun createMockPassportView(
     passportType: String? = "mockPassportType-$number",
     issuingCountry: String? = "mockIssuingCountry-$number",
     issuingAuthority: String? = "mockIssuingAuthority-$number",
-    issueDate: String? = "2024-06-15",
-    expirationDate: String? = "2031-11-25",
+    issueDate: LocalDate? = LocalDate.parse("2024-06-15"),
+    expirationDate: LocalDate? = LocalDate.parse("2031-11-25"),
     nationalIdentificationNumber: String? = "mockNationalIdentificationNumber-$number",
 ): PassportView =
     PassportView(

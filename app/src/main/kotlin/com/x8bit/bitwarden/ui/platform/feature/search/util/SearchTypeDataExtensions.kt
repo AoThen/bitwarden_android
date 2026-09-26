@@ -179,6 +179,7 @@ fun List<CipherListView>.toViewState(
     isIconLoadingDisabled: Boolean,
     isAutofill: Boolean,
     isPremiumUser: Boolean,
+    isVfo1FoundationEnabled: Boolean = false,
 ): SearchState.ViewState =
     when {
         searchTerm.isEmpty() -> SearchState.ViewState.Empty(message = null)
@@ -190,6 +191,7 @@ fun List<CipherListView>.toViewState(
                     isIconLoadingDisabled = isIconLoadingDisabled,
                     isAutofill = isAutofill,
                     isPremiumUser = isPremiumUser,
+                    isVfo1FoundationEnabled = isVfo1FoundationEnabled,
                 ),
             )
         }
@@ -201,12 +203,14 @@ fun List<CipherListView>.toViewState(
         }
     }
 
+@Suppress("LongParameterList")
 private fun List<CipherListView>.toDisplayItemList(
     baseIconUrl: String,
     hasMasterPassword: Boolean,
     isIconLoadingDisabled: Boolean,
     isAutofill: Boolean,
     isPremiumUser: Boolean,
+    isVfo1FoundationEnabled: Boolean = false,
 ): ImmutableList<SearchState.DisplayItem> =
     this
         .map {
@@ -216,17 +220,20 @@ private fun List<CipherListView>.toDisplayItemList(
                 isIconLoadingDisabled = isIconLoadingDisabled,
                 isAutofill = isAutofill,
                 isPremiumUser = isPremiumUser,
+                isVfo1FoundationEnabled = isVfo1FoundationEnabled,
             )
         }
         .sortAlphabetically()
         .toImmutableList()
 
+@Suppress("LongParameterList")
 private fun CipherListView.toDisplayItem(
     baseIconUrl: String,
     hasMasterPassword: Boolean,
     isIconLoadingDisabled: Boolean,
     isAutofill: Boolean,
     isPremiumUser: Boolean,
+    isVfo1FoundationEnabled: Boolean = false,
 ): SearchState.DisplayItem =
     SearchState.DisplayItem(
         id = id.orEmpty(),
@@ -238,7 +245,7 @@ private fun CipherListView.toDisplayItem(
             baseIconUrl = baseIconUrl,
             isIconLoadingDisabled = isIconLoadingDisabled,
         ),
-        extraIconList = toLabelIcons(),
+        extraIconList = toLabelIcons(isVfo1FoundationEnabled = isVfo1FoundationEnabled),
         overflowOptions = toOverflowActions(
             hasMasterPassword = hasMasterPassword,
             isPremiumUser = isPremiumUser,
@@ -281,7 +288,7 @@ private val CipherListViewType.iconRes: Int
         is CipherListViewType.Card -> BitwardenDrawable.ic_payment_card
         CipherListViewType.Identity -> BitwardenDrawable.ic_id_card
         CipherListViewType.SshKey -> BitwardenDrawable.ic_ssh_key
-        CipherListViewType.BankAccount -> BitwardenDrawable.ic_payment_card
+        is CipherListViewType.BankAccount -> BitwardenDrawable.ic_payment_card
         CipherListViewType.DriversLicense -> BitwardenDrawable.ic_note
         CipherListViewType.Passport -> BitwardenDrawable.ic_passport
     }
@@ -396,6 +403,7 @@ private fun SendView.toDisplayItem(
             iconRes = when (type) {
                 SendType.TEXT -> BitwardenDrawable.ic_file_text
                 SendType.FILE -> BitwardenDrawable.ic_file
+                SendType.ITEM -> TODO("[PM-41095] Support Item SendType")
             },
         ),
         extraIconList = toLabelIcons(clock = clock),
